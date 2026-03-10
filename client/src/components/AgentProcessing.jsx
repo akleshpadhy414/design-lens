@@ -2,8 +2,9 @@ import { Eye } from "lucide-react";
 import AgentCard from "./AgentCard.jsx";
 import { AGENTS } from "../lib/api.js";
 
-export default function AgentProcessing({ agentStatuses, reviewReady, error, onViewResults }) {
-  const completedCount = AGENTS.filter(
+export default function AgentProcessing({ agentStatuses, reviewReady, error, onViewResults, hasPrd = true }) {
+  const visibleAgents = hasPrd ? AGENTS : AGENTS.filter((a) => a.id !== "prd-parser");
+  const completedCount = visibleAgents.filter(
     (a) => agentStatuses[a.id] === "complete"
   ).length;
 
@@ -18,12 +19,12 @@ export default function AgentProcessing({ agentStatuses, reviewReady, error, onV
             ? "All agents have completed their analysis."
             : error
             ? "An error occurred during the review."
-            : `Five specialized agents are analyzing your designs against the PRD. ${completedCount}/${AGENTS.length} complete.`}
+            : `${hasPrd ? "Five" : "Four"} specialized agents are analyzing your designs${hasPrd ? " against the PRD" : ""}. ${completedCount}/${visibleAgents.length} complete.`}
         </p>
       </div>
 
       <div className="space-y-3">
-        {AGENTS.map((agent) => (
+        {visibleAgents.map((agent) => (
           <AgentCard
             key={agent.id}
             agent={agent}

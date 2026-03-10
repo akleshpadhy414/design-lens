@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { Image, ChevronLeft, Zap, X, SlidersHorizontal } from "lucide-react";
 
-export default function DesignUpload({ designs, setDesigns, onBack, onRunReview, customPrompt, setCustomPrompt }) {
+export default function DesignUpload({ designs, setDesigns, onBack, onRunReview, customPrompt, setCustomPrompt, prdText = "" }) {
   const canProceed = designs.length > 0;
 
   const handleDesignUpload = useCallback((e) => {
@@ -32,8 +32,9 @@ export default function DesignUpload({ designs, setDesigns, onBack, onRunReview,
           Upload your designs
         </h2>
         <p className="text-gray-500">
-          Add screenshots, mockups, or wireframes. The agents will analyze each
-          screen against your PRD requirements.
+          {prdText.trim().length > 0
+            ? "Add screenshots, mockups, or wireframes. The agents will analyze each screen against your PRD requirements."
+            : "Add screenshots, mockups, or wireframes. The agents will analyze each screen for visual hierarchy, usability, and copy quality."}
         </p>
       </div>
 

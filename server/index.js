@@ -27,9 +27,9 @@ app.get("/api/health", (req, res) => {
 app.post("/api/review", async (req, res) => {
   const { prdText, images, customPrompt = "" } = req.body;
 
-  if (!prdText || !images || images.length === 0) {
+  if (!images || images.length === 0) {
     return res.status(400).json({
-      error: "Both prdText and at least one image are required",
+      error: "At least one design image is required",
     });
   }
 
@@ -51,10 +51,13 @@ app.post("/api/review", async (req, res) => {
   };
 
   try {
-    // ─── Agent 1: PRD Parser ───
-    sendEvent("agent_start", { agent: "prd-parser" });
-    const prdContext = await runPrdParser({ prdText, customPrompt });
-    sendEvent("agent_complete", { agent: "prd-parser", result: prdContext });
+    // ─── Agent 1: PRD Parser (skipped when no PRD provided) ───
+    let prdContext = null;
+    if (prdText && prdText.trim().length > 0) {
+      sendEvent("agent_start", { agent: "prd-parser" });
+      prdContext = await runPrdParser({ prdText, customPrompt });
+      sendEvent("agent_complete", { agent: "prd-parser", result: prdContext });
+    }
 
     // ─── Agent 2: Visual Hierarchy ───
     sendEvent("agent_start", { agent: "visual-hierarchy" });
@@ -103,7 +106,7 @@ app.post("/api/review", async (req, res) => {
 
     // ─── Final combined result ───
     const finalResult = {
-      summary: checklistResult.summary || prdContext.summary || "",
+      summary: checklistResult.summary || prdContext?.summary || "",
       hierarchy: hierarchyFindings,
       usability: uxFindings,
       copySuggestions,

@@ -15,14 +15,9 @@ export async function runUxCompliance({
   hierarchyFindings,
   customPrompt = "",
 }) {
-  const userMessage = `## PRD Context
-${JSON.stringify(prdContext, null, 2)}
-
-## Previous Visual Hierarchy Findings
-${JSON.stringify(hierarchyFindings, null, 2)}
-
-## Task
-Evaluate the attached design screenshot(s) for usability and UX compliance against the PRD requirements. Flag any unmet P0 requirements as errors.`;
+  const userMessage = prdContext
+    ? `## PRD Context\n${JSON.stringify(prdContext, null, 2)}\n\n## Previous Visual Hierarchy Findings\n${JSON.stringify(hierarchyFindings, null, 2)}\n\n## Task\nEvaluate the attached design screenshot(s) for usability and UX compliance against the PRD requirements. Flag any unmet P0 requirements as errors.`
+    : `## Previous Visual Hierarchy Findings\n${JSON.stringify(hierarchyFindings, null, 2)}\n\n## Task\nEvaluate the attached design screenshot(s) for usability and UX quality. No PRD was provided — evaluate based on established UX heuristics: clarity of purpose, affordances, navigation flow, cognitive load, feedback states, and consistency.`;
 
   const result = await callClaude({
     systemPrompt,

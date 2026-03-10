@@ -1,4 +1,4 @@
-import { Upload, ArrowRight } from "lucide-react";
+import { Upload, ArrowRight, SkipForward } from "lucide-react";
 
 export default function PrdUpload({ prdText, setPrdText, onNext }) {
   const canProceed = prdText.trim().length > 20;
@@ -10,9 +10,8 @@ export default function PrdUpload({ prdText, setPrdText, onNext }) {
           Start with context
         </h2>
         <p className="text-gray-500">
-          Paste your PRD, spec, or requirements doc. The agents will extract
-          requirements, edge cases, and success metrics to evaluate your designs
-          against.
+          Paste your PRD, spec, or requirements doc for a more targeted review.
+          Or skip to review designs based on visual principles alone.
         </p>
       </div>
 
@@ -38,7 +37,13 @@ export default function PrdUpload({ prdText, setPrdText, onNext }) {
         </button>
       </div>
 
-      <div className="mt-8 flex justify-end">
+      <div className="mt-8 flex justify-end items-center gap-4">
+        <button
+          onClick={onNext}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 transition-colors"
+        >
+          <SkipForward size={14} /> Skip — review designs only
+        </button>
         <button
           onClick={() => canProceed && onNext()}
           disabled={!canProceed}

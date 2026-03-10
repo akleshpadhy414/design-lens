@@ -10,11 +10,9 @@ const systemPrompt = readFileSync(
 );
 
 export async function runVisualHierarchy({ images, prdContext, customPrompt = "" }) {
-  const userMessage = `## PRD Context
-${JSON.stringify(prdContext, null, 2)}
-
-## Task
-Analyze the attached design screenshot(s) for visual hierarchy and layout quality. Reference specific elements you can see.`;
+  const userMessage = prdContext
+    ? `## PRD Context\n${JSON.stringify(prdContext, null, 2)}\n\n## Task\nAnalyze the attached design screenshot(s) for visual hierarchy and layout quality. Reference specific elements you can see.`
+    : `## Task\nAnalyze the attached design screenshot(s) for visual hierarchy and layout quality. No PRD was provided — evaluate purely based on visual design principles: focal point clarity, visual weight distribution, spacing and density, alignment consistency, and readability. Reference specific elements you can see.`;
 
   const result = await callClaude({
     systemPrompt,

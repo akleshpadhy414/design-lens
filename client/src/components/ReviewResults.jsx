@@ -179,7 +179,7 @@ export default function ReviewResults({ review, onStartNew }) {
         </button>
         <div className="flex items-center gap-2 text-xs text-gray-400">
           <Coffee size={14} />
-          <span>Reviewed by 5 AI agents</span>
+          <span>Reviewed by {review.prdContext ? "5" : "4"} AI agents</span>
         </div>
       </div>
     </div>

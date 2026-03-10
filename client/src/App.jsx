@@ -7,7 +7,7 @@ import AgentProcessing from "./components/AgentProcessing.jsx";
 import ReviewResults from "./components/ReviewResults.jsx";
 import { startReview, checkHealth } from "./lib/api.js";
 
-const STEPS = ["Upload PRD", "Add Designs", "AI Review", "Results"];
+const STEPS = ["PRD (Optional)", "Add Designs", "AI Review", "Results"];
 
 export default function App() {
   const [step, setStep] = useState(0);
@@ -102,7 +102,7 @@ export default function App() {
             )}
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <Bot size={14} />
-              <span>5 agents ready</span>
+              <span>{prdText.trim().length > 0 ? "5" : "4"} agents ready</span>
             </div>
           </div>
         </div>
@@ -129,6 +129,7 @@ export default function App() {
             onRunReview={runReview}
             customPrompt={customPrompt}
             setCustomPrompt={setCustomPrompt}
+            prdText={prdText}
           />
         )}
 
@@ -139,6 +140,7 @@ export default function App() {
             reviewReady={reviewReady}
             error={error}
             onViewResults={() => setStep(3)}
+            hasPrd={prdText.trim().length > 0}
           />
         )}
 

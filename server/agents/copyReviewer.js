@@ -10,11 +10,9 @@ const systemPrompt = readFileSync(
 );
 
 export async function runCopyReviewer({ images, prdContext, customPrompt = "" }) {
-  const userMessage = `## PRD Context
-${JSON.stringify(prdContext, null, 2)}
-
-## Task
-Analyze all visible text in the attached screenshot(s) — labels, headers, descriptions, button text, column names, status labels, etc. Suggest concrete copy improvements with reasoning.`;
+  const userMessage = prdContext
+    ? `## PRD Context\n${JSON.stringify(prdContext, null, 2)}\n\n## Task\nAnalyze all visible text in the attached screenshot(s) — labels, headers, descriptions, button text, column names, status labels, etc. Suggest concrete copy improvements with reasoning.`
+    : `## Task\nAnalyze all visible text in the attached screenshot(s) — labels, headers, descriptions, button text, column names, status labels, etc. No PRD was provided — focus on clarity, scannability, action-orientation, and tone consistency within the UI itself. Suggest concrete copy improvements with reasoning.`;
 
   const result = await callClaude({
     systemPrompt,
