@@ -4,10 +4,15 @@ import { dirname, join } from "path";
 import { callClaude } from "../lib/claude.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const systemPrompt = readFileSync(
+const agentPrompt = readFileSync(
   join(__dirname, "../prompts/prdParser.txt"),
   "utf-8"
 );
+const highriseContext = readFileSync(
+  join(__dirname, "../prompts/highrise-context.txt"),
+  "utf-8"
+);
+const systemPrompt = `You are working with the following design system and copy guidelines:\n\n${highriseContext}\n\n${agentPrompt}`;
 
 export async function runPrdParser({ prdText, customPrompt = "" }) {
   const result = await callClaude({
