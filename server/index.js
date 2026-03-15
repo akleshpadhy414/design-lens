@@ -6,6 +6,9 @@ import { runVisualHierarchy } from "./agents/visualHierarchy.js";
 import { runUxCompliance } from "./agents/uxCompliance.js";
 import { runCopyReviewer } from "./agents/copyReviewer.js";
 import { runChecklistGen } from "./agents/checklistGen.js";
+import { runLayoutScaffolder } from "./agents/layoutScaffolder.js";
+import { runCopyWriter } from "./agents/copyWriter.js";
+import { runReferenceRenderer } from "./agents/referenceRenderer.js";
 
 dotenv.config();
 
@@ -119,6 +122,71 @@ app.post("/api/review", async (req, res) => {
     console.error("Review pipeline error:", error);
     sendEvent("error", {
       message: error.message || "An error occurred during the review",
+    });
+  } finally {
+    res.end();
+  }
+});
+
+// Generate endpoint — PRD to UI spec via SSE
+app.post("/api/generate", async (req, res) => {
+  const { prdText } = req.body;
+
+  if (!prdText || prdText.trim().length === 0) {
+    return res.status(400).json({
+      error: "PRD text is required for generation",
+    });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({
+      error:
+        "OPENAI_API_KEY not configured. Copy .env.example to .env and add your key.",
+    });
+  }
+
+  // Set up SSE
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const sendEvent = (event, data) => {
+    res.write(`data: ${JSON.stringify({ event, ...data })}\n\n`);
+  };
+
+  try {
+    // ─── Agent 1: Layout Scaffolder ───
+    sendEvent("agent_start", { agent: "layout-scaffolder" });
+    const scaffoldResult = await runLayoutScaffolder({ prdText });
+    const scaffold = scaffoldResult.scaffold || scaffoldResult;
+    sendEvent("agent_complete", { agent: "layout-scaffolder", result: scaffoldResult });
+
+    // ─── Agent 2: Copy Writer ───
+    sendEvent("agent_start", { agent: "copy-writer" });
+    const copyResult = await runCopyWriter({ prdText, scaffold });
+    const enrichedScaffold = copyResult.scaffold || copyResult;
+    const copyNotes = copyResult.copyNotes || "";
+    sendEvent("agent_complete", { agent: "copy-writer", result: copyResult });
+
+    // ─── Agent 3: Reference Renderer ───
+    sendEvent("agent_start", { agent: "reference-renderer" });
+    const renderResult = await runReferenceRenderer({ scaffold: enrichedScaffold });
+    const html = renderResult.html || renderResult.raw || "";
+    sendEvent("agent_complete", { agent: "reference-renderer", result: renderResult });
+
+    // ─── Final combined result ───
+    const finalResult = {
+      scaffold: enrichedScaffold,
+      copyNotes,
+      html,
+    };
+
+    sendEvent("generate_complete", { result: finalResult });
+  } catch (error) {
+    console.error("Generate pipeline error:", error);
+    sendEvent("error", {
+      message: error.message || "An error occurred during generation",
     });
   } finally {
     res.end();
