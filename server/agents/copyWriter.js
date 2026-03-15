@@ -5,7 +5,7 @@ import { callClaude } from "../lib/claude.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const agentPrompt = readFileSync(
-  join(__dirname, "../prompts/prdParser.txt"),
+  join(__dirname, "../prompts/copyWriter.txt"),
   "utf-8"
 );
 const highriseContext = readFileSync(
@@ -14,11 +14,12 @@ const highriseContext = readFileSync(
 );
 const systemPrompt = `You are working with the following design system and copy guidelines:\n\n${highriseContext}\n\n${agentPrompt}`;
 
-export async function runPrdParser({ prdText, customPrompt = "" }) {
+export async function runCopyWriter({ prdText, scaffold }) {
+  const userMessage = `## PRD\n${prdText}\n\n## Component Tree from Layout Scaffolder\n${JSON.stringify(scaffold, null, 2)}\n\n## Task\nFill in all placeholder text with production-ready UI copy. Return the complete component tree with all strings filled in.`;
+
   const result = await callClaude({
     systemPrompt,
-    userMessage: `Here is the PRD to analyze:\n\n${prdText}`,
-    customInstructions: customPrompt,
+    userMessage,
   });
   return result;
 }

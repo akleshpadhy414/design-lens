@@ -5,7 +5,7 @@ import { callClaude } from "../lib/claude.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const agentPrompt = readFileSync(
-  join(__dirname, "../prompts/prdParser.txt"),
+  join(__dirname, "../prompts/layoutScaffolder.txt"),
   "utf-8"
 );
 const highriseContext = readFileSync(
@@ -14,11 +14,12 @@ const highriseContext = readFileSync(
 );
 const systemPrompt = `You are working with the following design system and copy guidelines:\n\n${highriseContext}\n\n${agentPrompt}`;
 
-export async function runPrdParser({ prdText, customPrompt = "" }) {
+export async function runLayoutScaffolder({ prdText }) {
+  const userMessage = `## PRD\n${prdText}\n\n## Task\nGenerate a component tree for the UI described in this PRD using only Highrise components.`;
+
   const result = await callClaude({
     systemPrompt,
-    userMessage: `Here is the PRD to analyze:\n\n${prdText}`,
-    customInstructions: customPrompt,
+    userMessage,
   });
   return result;
 }

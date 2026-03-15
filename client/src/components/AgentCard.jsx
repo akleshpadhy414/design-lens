@@ -4,6 +4,9 @@ import {
   Compass,
   Type,
   ClipboardCheck,
+  LayoutGrid,
+  PenTool,
+  Monitor,
   Loader,
   CheckCircle,
 } from "lucide-react";
@@ -14,6 +17,9 @@ const ICON_MAP = {
   Compass,
   Type,
   ClipboardCheck,
+  LayoutGrid,
+  PenTool,
+  Monitor,
 };
 
 export default function AgentCard({ agent, status }) {

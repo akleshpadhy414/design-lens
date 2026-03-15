@@ -1,0 +1,524 @@
+HIGHRISE DESIGN SYSTEM — GoHighLevel (GHL)
+============================================
+Tech stack: Vue 3 + TypeScript + TailwindCSS
+Component library: @platform-ui/highrise
+
+All components use the prefix "HL" (e.g., HLButton, HLModal, HLDataTable).
+All components require an `id` prop (string) as a unique identifier.
+
+=====================================
+1. COLOR TOKENS
+=====================================
+
+Semantic colors (use -500 as base, scale from -25 to -950):
+  Primary:  --primary-500  #2970ff  (Brand color, primary actions)
+  Success:  --success-500  #16b364  (Positive actions, active states)
+  Warning:  --warning-500  #f79009  (Warning states, attention needed)
+  Error:    --error-500    #f04438  (Error states, destructive actions)
+  Gray:     --gray-500     #5d6b98  (Neutral, secondary text)
+  Blue:     --blue-500     #2e90fa  (Informational)
+  Purple:   --purple-500   #7a5af8  (Accent)
+  Pink:     --pink-500     #ee46bc  (Accent)
+
+Common mappings:
+  Primary button bg:  --primary-600
+  Main text:          --gray-900
+  Secondary text:     --gray-500
+  Page background:    --gray-50
+  Subtle borders:     --gray-200
+  Success messages:   --success-500
+  Error messages:     --error-500
+
+=====================================
+2. TYPOGRAPHY
+=====================================
+
+Component: HLTypography
+Props: size, weight, class, html-tag, type
+
+Size scale: '4xl' | '3xl' | '2xl' | 'xl' | 'lg' | 'md' | 'sm' | 'xs' | '2xs' | '3xs' | '4xs'
+Default size: 'md' (font-size: 20px, line-height: 30px)
+Weight: 'regular' | 'medium' | 'semibold' | 'bold' (default: 'regular')
+Type: 'text' | 'display' (default: 'text')
+html-tag: any HTML tag (default: 'p')
+
+=====================================
+3. BUTTONS
+=====================================
+
+Component: HLButton
+Variants: 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'text' (default: 'secondary')
+Sizes: '2xl' | 'xl' | 'lg' | 'md' | 'sm' | 'xs' | '2xs' | '3xs' (default: 'md')
+Colors: 'blue' | 'gray' | 'red' | 'orange' | 'green' | any CSS color (default: 'gray')
+States: disabled, loading
+Props: fullWidth (boolean), link (boolean), href, target
+Slots: default, icon, iconLeft, iconRight
+
+USAGE:
+  - Primary (blue): Main CTA, one per screen/modal
+  - Secondary (gray): Default for most actions
+  - Tertiary: De-emphasized actions
+  - Ghost: Minimal chrome, toolbar actions
+  - Text: Inline text-style actions
+  - Red/destructive: Cancel subscription, delete actions
+  - Loading state: Set loading=true during async operations
+
+Component: HLButtonGroup — groups related buttons together
+
+=====================================
+4. MODAL
+=====================================
+
+Component: HLModal
+Default width: 483px
+Types: 'default' | 'info' | 'success' | 'warning' | 'error'
+Props: show, showBack, showClose, showFooter, showHeader, showHeaderIcon, maskClosable, closeOnEsc, trapFocus, width, zIndex
+
+Footer pattern: Two-button footer with @left-click (secondary), @right-primary-click (primary), @right-secondary-click
+Slots: default (body), header, footer
+
+Events: @close, @esc, @back, @mask-click, @after-enter, @after-leave, @before-leave
+
+USAGE:
+  - Use type='default' for standard modals
+  - Use type='warning' or 'error' for destructive confirmation modals
+  - showBack=true for multi-step flows within a modal
+  - Default footer has Cancel (left) + Primary action (right)
+  - maskClosable=true by default — clicking backdrop closes the modal
+  - Always trap focus inside modal (trapFocus=true default)
+
+=====================================
+5. DRAWER
+=====================================
+
+Component: HLDrawer + HLDrawerContent
+Placement: 'top' | 'right' | 'bottom' | 'left' (default: 'right')
+Default width: 251px, resizable option available
+Props: show, maskClosable, closeOnEsc, trapFocus, resizable, blockScroll
+
+DrawerContent props: title, description, icon, closable, showHeader
+Slots: default (body), header, footer
+
+USAGE:
+  - Use Drawer (right) for detail panels, settings, and contextual info
+  - Use Modal for confirmations, small forms, and focused tasks
+  - Drawer supports resize — good for complex content that may need more space
+
+=====================================
+6. DATA TABLE
+=====================================
+
+Component: HLDataTable (wrapped in HLDataTableWrapper)
+
+DataTable props:
+  columns (required): DataTableColumn[] — defines headers
+  data (required): any[] — row data
+  maxHeight: string (default: '800px')
+  rowHeight: string (default: '36px')
+  headerRowHeight: string (default: '36px')
+  striped: boolean — alternating row colors
+  horizontalBorders / verticalBorders: boolean (default: true)
+  rowHover / columnHover: boolean (default: true)
+  highlightSelectedRow: boolean
+  rowReordering / columnReordering: boolean
+  freezedColumns: { left?: string[], right?: string[] }
+  columnResizing: boolean (default: true)
+  selectedRows: string[] — array of selected row IDs
+  rowClickable: boolean
+  rowUniqueId: string (default: 'id')
+  expandedRowRenderer: function — for expandable rows
+  loading: boolean | { status: boolean, skeletonRows: number }
+  pageSize: number (default: 20)
+
+DataTableWrapper props:
+  showHeader / showGlobalSearch: boolean
+  searchPlaceholder: string (default: 'Search')
+  columnOptions: ColumnOption[] — column visibility/ordering
+  noOfRowsSelected: number — shows selection count
+  freezedColumn / layoutOptions / selectedTableLayout
+  globalFilter: string
+  fillParentHeight: boolean
+
+Slots (wrapper): header, footer, header-content-left, header-content-right, default
+
+Events: @table-row-clicked, @update:column-checked, @update:column-order, @update:row-reordered, @update:global-filter, @update:page-size, @no-data
+
+USAGE:
+  - Use DataTableWrapper for search, filters, column management
+  - Row selection via selectedRows prop + checkbox column
+  - Use loading={status: true, skeletonRows: 10} for loading states
+  - Empty state via no-data slot
+  - Error state shown inline in table body
+  - Column freezing for wide tables (freeze left: checkbox, right: actions)
+
+=====================================
+7. TAG
+=====================================
+
+Component: HLTag
+Types: 'solid' | 'secondary' | 'outline' | 'dot' | 'modern-primary' | 'modern' | 'icon' | 'avatar-tag' | 'pill'
+Colors: 'gray' | 'primary' | 'success' | 'error' | 'warning' | 'gray-blue' | 'blue-light' | 'blue' | 'indigo' | 'purple' | 'pink' | 'rose' | 'orange'
+Sizes: 'lg' | 'md' | 'sm'
+Props: closable, disabled, checkable, checked, round (fully rounded)
+Slots: default, icon (leading icon), avatar (leading avatar)
+
+USAGE:
+  - 'dot' type: Status indicators (Active=success, Cancelled=error, Payment due=warning)
+  - 'solid' or 'secondary': Billing type labels, plan indicators
+  - 'pill' type: Fully rounded, for counters and badges
+  - closable tags: For removable items, filter chips
+  - checkable tags: For multi-select tag groups
+
+=====================================
+8. BADGE
+=====================================
+
+Component: HLBadge
+Colors: 'gray' | 'primary' | 'success' | 'error' | 'warning' | 'gray-blue' | 'blue-light' | 'blue' | 'indigo' | 'purple' | 'pink' | 'rose'
+Sizes: '3xs' | '2xs' | 'xs' | 'sm' | 'md' | 'lg' | 'custom'
+Props: dot (boolean), max (number), processing (boolean — animation), showZero, show, value, offset
+
+USAGE:
+  - Wrap around other components (Avatar, Button, Icon)
+  - dot=true for simple status dot
+  - processing=true for animated attention indicator
+  - Use max prop to cap displayed count (e.g., max=99 shows "99+")
+
+=====================================
+9. ALERT
+=====================================
+
+Component: HLAlert
+Colors: 'white' | 'blue' | 'green' | 'red' | 'orange' | 'gray'
+Types: 'alert' | 'notification'
+Props: title, content, closable, autoClose, actionOne, actionTwo, width, maxWidth (default: 540px)
+Slots: default (content), icon
+
+USAGE:
+  - Blue: Informational messages
+  - Green: Success confirmations
+  - Red: Error messages, destructive warnings
+  - Orange: Warnings, attention required
+  - Use actionOne/actionTwo for inline CTAs within alerts
+
+=====================================
+10. DROPDOWN
+=====================================
+
+Component: HLDropdown
+Trigger: 'click' | 'hover' (default: 'click')
+Width: number (default: 182px)
+Props: options (DropdownOption[]), placement, disabled, menuClass
+
+Features:
+  - Flat list and nested tree navigation
+  - Search within dropdown (searchable prop)
+  - Selection states (selected items)
+  - Custom option rendering via slots
+  - Options support: label, icon, disabled, divider, children (for nesting)
+
+USAGE:
+  - Three-dot action menus on table rows
+  - Filter dropdowns
+  - Navigation menus
+  - Use divider option to group related actions
+
+=====================================
+11. FORM COMPONENTS
+=====================================
+
+HLInput (Text Input):
+  Types: 'text' | 'textarea' | 'password' | 'tel' | 'email' | 'url'
+  Sizes: 'lg' | 'md' | 'sm' | 'xs' | '2xs' | '3xs' (default: 'sm')
+  Props: modelValue, placeholder, clearable, disabled, loading, showCount, maxlength, readonly
+  Features: prefix/suffix slots, inline editing mode, prefix/suffix icons
+  Slots: default, prefix, suffix, edit-actions
+
+HLTextArea:
+  Same as HLInput with type="textarea"
+  Extra: rows prop, autosize
+
+HLSelect:
+  Props: options, modelValue, placeholder, filterable, clearable, disabled, multiple, size, loading, virtualScroll
+  Features: single/multi select, search/filter, virtual scroll for large lists, option grouping
+
+HLCheckbox:
+  Props: checked, disabled, size, indeterminate, value
+  Sizes: 'lg' | 'md' | 'sm' | 'xs' | '2xs' | '3xs'
+
+HLCheckboxGroup:
+  Props: modelValue (string[]), disabled, min, max
+
+HLCheckboxCard:
+  Props: title, description, value, disabled, compact, checked
+  Visual: Card-style checkbox for enhanced presentation
+
+HLRadio / HLRadioCard / HLRadioGroup:
+  Same size scale as Checkbox
+  RadioCard: title, description, value, compact, checked, iconSize
+
+HLToggle:
+  Props: modelValue, disabled, size, loading
+  Sizes: 'md' | 'sm' | 'xs'
+
+HLDatePicker:
+  Types: 'date' | 'datetime' | 'daterange' | 'datetimerange' | 'month' | 'monthrange' | 'year' | 'quarter' | 'week'
+  Props: modelValue, placeholder, disabled, clearable, format, actions (preset ranges)
+
+HLTimePicker:
+  Props: modelValue, placeholder, disabled, clearable, format, use12Hours, actions
+
+HLColorPicker:
+  Props: modelValue, disabled, size, modes, showAlpha, showPreview, swatches, actions
+
+HLInputTag:
+  Props: modelValue (string[]), placeholder, disabled, clearable, max, size, closable, tagType
+  Features: Add/remove tags, max limit, paste multiple
+
+HLInputSlider:
+  Props: modelValue, min, max, step, disabled, range, marks, showTooltip
+
+HLInputGroup:
+  Combines label + input + help text + error message in a form group
+
+HLForm:
+  Props: model, rules, labelPlacement ('left' | 'top'), labelWidth, showRequireMark, disabled, size
+  Validation: Built-in validation with rules, trigger on 'blur' | 'change' | 'input'
+
+=====================================
+12. TOOLTIP
+=====================================
+
+Component: HLTooltip
+Props: content (string), placement, trigger ('hover' | 'click' | 'focus' | 'manual'), disabled, delay, duration, width, arrow, theme ('dark' | 'light')
+Slots: default (trigger element)
+
+USAGE:
+  - Always add tooltips to disabled interactive elements explaining WHY they're disabled
+  - Use for icon-only buttons to provide labels
+  - Keep tooltip content short (1-2 lines)
+  - Use theme='dark' (default) for most cases
+
+=====================================
+13. POPOVER
+=====================================
+
+Component: HLPopover
+Props: trigger ('hover' | 'click' | 'focus' | 'manual'), placement, disabled, width, show-arrow, scrollable
+Features: Richer than tooltip — supports header, body, footer sections
+Slots: default (trigger), header, footer
+
+USAGE:
+  - Use for rich content that doesn't warrant a modal
+  - Confirmation popovers (delete confirmation)
+  - Inline detail views
+
+=====================================
+14. TABS
+=====================================
+
+Component: HLTabs
+Types: 'line' | 'card' | 'segment' | 'bar'
+Sizes: 'md' | 'sm'
+Props: modelValue, type, size, animated, closable, addable, justifyContent, tabPadding
+Tab pane props: name, tab (label), disabled, closable, displayDirective
+
+USAGE:
+  - 'line' type: Standard tab navigation (most common)
+  - 'segment' type: Toggle between views (like billing type toggle)
+  - 'card' type: Contained tab panels
+  - 'bar' type: Minimal bar-style tabs
+
+=====================================
+15. PAGINATION
+=====================================
+
+Component: HLPagination
+Props: page, pageCount, pageSize, pageSlot, itemCount, showSizePicker, pageSizes, showQuickJumper, disabled, simple
+Events: @update:page, @update:page-size
+
+Note: For high-volume tables (100+ rows), prefer infinite scroll / virtual list over pagination.
+
+=====================================
+16. PROGRESS / SKELETON / SPIN
+=====================================
+
+HLProgress: type ('line' | 'circle' | 'dashboard'), percentage, status, strokeWidth, color
+HLProgressInline: Compact inline progress bar
+HLSkeleton: text (boolean), round, repeat, animated, width, height — for loading placeholders
+HLSpin: size ('sm' | 'md' | 'lg'), show — wraps content with loading overlay
+
+=====================================
+17. LAYOUT COMPONENTS
+=====================================
+
+HLCard: borderType ('info' | 'success' | 'warning' | 'error' | false), slots: default, header, footer
+HLDivider: titlePlacement, dashed, vertical
+HLSpace: vertical (boolean), size, align, wrap — flex layout helper
+HLTile: Interactive tile with hover, slots: title, subtitle, icon, header, footer, default
+HLContentWrap: Provider for notifications and global config
+HLSectionFooter: Section footer with title, subtitle, CTAs
+
+=====================================
+18. NAVIGATION
+=====================================
+
+HLBreadcrumb: items (BreadcrumbItem[]) with label, icon, href, disabled
+HLMenu: mode ('vertical' | 'horizontal'), options (MenuOption[]), collapsed, accordion, indent
+HLProgressSteps: current, status, items — for multi-step wizards
+HLSidebar: Sidebar navigation component
+
+=====================================
+19. OTHER COMPONENTS
+=====================================
+
+HLAccordion: accordion (boolean), arrowPlacement, size, borderPosition
+HLAvatar: size, src, name (for initials), round
+HLAvatarGroup: stacked, tooltip, max, status-indicator
+HLCarousel: showArrow, autoPlay, direction, effect, loop, itemsPerView
+HLDraggable: bordered, showHandler, handlerPosition, disabled, isDragging
+HLEllipsis: lineClamp, tooltip, expandTrigger
+HLHeaderLite: Lightweight page header with title, subtitle, back button, actions
+HLIcon: name (icon identifier), size, color
+HLStatistic: label, value, prefix, suffix — for dashboard number displays
+HLEmpty: Empty state component with illustration and action
+HLTimeline: Vertical timeline for event/activity display
+HLUpload: action (URL), accept, max, multiple, drag, listType
+HLTreeSelect: Hierarchical tree selection component
+HLAdvanceFilter: Complex multi-condition filter builder
+HLContentSwitcher: Switch between content sections (icon or text mode)
+HLDynamicTags: Runtime tag creation and management
+
+=====================================
+20. GHL COPY GUIDELINES (OFFICIAL)
+=====================================
+
+Language: English (US) only.
+
+VOICE & TONE:
+  Clear, confident, friendly. Short, actionable, human. No filler, no jargon.
+  DO:   "Add contact"
+  DON'T: "Click here to begin adding your contact information"
+
+CAPITALIZATION:
+  Everything is sentence case. No Title Case except proper nouns.
+  Headings/Titles:        Sentence case  →  "Create new campaign"
+  Buttons/Tabs:           Sentence case  →  "Save changes"
+  Descriptions/Helper:    Sentence case  →  "You can edit this later."
+  Error & Success:        Sentence case  →  "Something went wrong. Try again."
+  Tooltips:               Sentence case  →  "Use this option to duplicate your funnel."
+  Only capitalize proper nouns: HighLevel, Google, Facebook, Funnel AI.
+
+PUNCTUATION:
+  Periods: Use in full sentences; omit in short labels and buttons.
+  Commas: Use Oxford comma (A, B, and C).
+  Exclamation marks: Sparingly, only for positive reinforcement ("All changes saved!").
+  Ellipses (...): Only for incomplete actions ("Loading...").
+  Hyphens (-): Compound words (In-app message).
+  En dash (–): Ranges (Jan–Feb).
+
+BUTTONS & ACTIONS:
+  Use clear, action-oriented verbs. No vague or generic words.
+  DON'T → DO:
+    "Submit"     → "Save changes"
+    "OK"         → "Confirm" or "Continue"
+    "Click Here" → "Learn more"
+    "Retry"      → "Try again"
+  Buttons are sentence case, verb-first.
+
+ERRORS & ALERTS:
+  Helpful and calm, not technical or alarmist.
+  DON'T: "Error 503: Bad Gateway"
+  DO:    "Can't connect right now. Check your internet and try again."
+  Focus on what the user can do next to resolve the error.
+
+HELPER TEXT & EMPTY STATES:
+  Concise, helpful sentences in sentence case.
+  Examples:
+    "You don't have any templates yet. Create your first one to get started."
+    "Add details to personalize your automation."
+  Avoid fillers: never use "Please note that..." or "Kindly...".
+
+FORMATTING & NUMBERS:
+  Numbers: Always use numerals (3 campaigns, not three campaigns).
+  Thousands: Use commas (1,000; 12,500).
+  Large numbers: Abbreviate when space is limited (1.2K, 3.5M).
+  Percentages: Use numerals with % (5%, 12.5%). Keep decimal precision consistent.
+  Currency: Use $ with numerals ($49, $1,299). Use .00 only when precision matters.
+  Dates (US): MM/DD/YYYY (01/14/2026).
+  Readable dates: Jan 14, 2026 for headings and summaries.
+  Time: 12-hour format with space before AM/PM (3:00 PM).
+  Time ranges: En dash (3:00–4:00 PM). Include timezone when relevant (ET, PT).
+  Phone numbers (US): (###) ###-#### — example: (415) 555-0132.
+  Phone with country code: +1 (###) ###-####.
+  Phone extensions: ext. #### — example: (415) 555-0132 ext. 204.
+  NO dots in phone numbers (415.555.0132 is WRONG).
+  Addresses: USPS state abbreviations (CA, NY, TX).
+  ZIP codes: ##### or #####-####.
+  File sizes: KB, MB, GB (25 MB).
+  Units: Abbreviated with numerals (5 min, 2 hr).
+  URLs: Omit protocol when possible (example.com).
+  Emails: Lowercase (name@company.com).
+  Acronyms: All caps (API, CRM, URL).
+  IDs and codes: Preserve system-generated formatting and capitalization.
+
+CONSISTENCY CHECKLIST:
+  - Correct capitalization for the element type
+  - Simple, consistent punctuation
+  - Clear, actionable phrasing
+  - Consistent tone with brand voice
+  - Verb-first for buttons
+  - No fillers, no jargon, no "please note"
+
+=====================================
+21. GHL-SPECIFIC DESIGN PATTERNS & CONVENTIONS
+=====================================
+
+STATUS COLORS:
+  Active:       HLTag type="dot" color="success"
+  Cancelled:    HLTag type="dot" color="error"
+  Payment due:  HLTag type="dot" color="warning"
+  Pending:      HLTag type="dot" color="gray"
+
+BILLING TYPE LABELS:
+  Agency Direct:  "Agency · Direct"  (compact label)
+  Agency Resell:  "Agency · Resell"  (compact label)
+  Use HLTag type="secondary" for billing type indicators in tables
+
+MODAL FOOTER PATTERN:
+  Left: Secondary action (e.g., "Go back") — @left-click
+  Right: Primary CTA (blue, variant="primary") — @right-primary-click
+  Right secondary: Optional secondary (e.g., "Save as draft") — @right-secondary-click
+  NEVER use "Cancel" as button label in billing context (conflicts with subscription cancellation)
+  Use "Go back" for returning to previous step
+
+TABLE PATTERNS:
+  - Default pageSize: 20
+  - Row height: 36px
+  - Always include checkbox column for bulk actions (freeze left)
+  - Action column with HLDropdown three-dot menu (freeze right)
+  - Use HLDataTableWrapper with showGlobalSearch for searchable tables
+  - Empty state: Use no-data slot with HLEmpty component
+  - Loading state: loading={status: true, skeletonRows: 10}
+
+FORM PATTERNS:
+  - Label placement: 'top' for modals, 'left' for settings pages
+  - Default input size: 'sm'
+  - Always show validation errors inline below the field
+  - Required fields: showRequireMark=true on HLForm
+
+CONFIRMATION MODALS:
+  - Type 'warning' for irreversible actions
+  - Type 'error' for destructive actions (delete, cancel subscription)
+  - Always state consequences in the modal body
+  - Dynamic CTA labels that describe the specific action (not generic "Continue")
+
+PROGRESSIVE DISCLOSURE:
+  - Use HLAccordion for expandable detail sections
+  - Use HLEllipsis for truncated text with tooltip
+  - Cap visible items at 5-6, show "+N more" with expand option
+  - Summary-first pattern: show aggregated numbers, drill-down for details
+
+DISABLED STATE GUIDELINES:
+  - Always add HLTooltip to disabled elements explaining why they are disabled
+  - Example: Disabled "Resubscribe" on active site → tooltip "Already active — no action needed"
