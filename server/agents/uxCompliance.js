@@ -18,11 +18,16 @@ export async function runUxCompliance({
   images,
   prdContext,
   hierarchyFindings,
+  screenManifest = "",
   customPrompt = "",
 }) {
+  const manifestSection = screenManifest
+    ? `## Screen Manifest\nImages are provided in this order. Reference screens by number and label in your findings.\n${screenManifest}\n\n`
+    : "";
+
   const userMessage = prdContext
-    ? `## PRD Context\n${JSON.stringify(prdContext, null, 2)}\n\n## Previous Visual Hierarchy Findings\n${JSON.stringify(hierarchyFindings, null, 2)}\n\n## Task\nEvaluate the attached design screenshot(s) for usability and UX compliance against the PRD requirements. Flag any unmet P0 requirements as errors.`
-    : `## Previous Visual Hierarchy Findings\n${JSON.stringify(hierarchyFindings, null, 2)}\n\n## Task\nEvaluate the attached design screenshot(s) for usability and UX quality. No PRD was provided — evaluate based on established UX heuristics: clarity of purpose, affordances, navigation flow, cognitive load, feedback states, and consistency.`;
+    ? `${manifestSection}## PRD Context\n${JSON.stringify(prdContext, null, 2)}\n\n## Previous Visual Hierarchy Findings\n${JSON.stringify(hierarchyFindings, null, 2)}\n\n## Task\nEvaluate the attached design screenshot(s) for usability and UX compliance against the PRD requirements. Flag any unmet P0 requirements as errors. Tag each finding with the screen number(s) it applies to. If flow tags are provided in the manifest, also evaluate flow completeness — are all expected states covered (happy path, error, empty, loading)?`
+    : `${manifestSection}## Previous Visual Hierarchy Findings\n${JSON.stringify(hierarchyFindings, null, 2)}\n\n## Task\nEvaluate the attached design screenshot(s) for usability and UX quality. No PRD was provided — evaluate based on established UX heuristics: clarity of purpose, affordances, navigation flow, cognitive load, feedback states, and consistency. Tag each finding with the screen number(s) it applies to. If flow tags are provided in the manifest, also evaluate flow completeness.`;
 
   const result = await callClaude({
     systemPrompt,

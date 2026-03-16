@@ -14,10 +14,14 @@ const highriseContext = readFileSync(
 );
 const systemPrompt = `You are working with the following design system and copy guidelines:\n\n${highriseContext}\n\n${agentPrompt}`;
 
-export async function runCopyReviewer({ images, prdContext, customPrompt = "" }) {
+export async function runCopyReviewer({ images, prdContext, screenManifest = "", customPrompt = "" }) {
+  const manifestSection = screenManifest
+    ? `## Screen Manifest\nImages are provided in this order. Reference screens by number and label in your suggestions.\n${screenManifest}\n\n`
+    : "";
+
   const userMessage = prdContext
-    ? `## PRD Context\n${JSON.stringify(prdContext, null, 2)}\n\n## Task\nAnalyze all visible text in the attached screenshot(s) — labels, headers, descriptions, button text, column names, status labels, etc. Suggest concrete copy improvements with reasoning.`
-    : `## Task\nAnalyze all visible text in the attached screenshot(s) — labels, headers, descriptions, button text, column names, status labels, etc. No PRD was provided — focus on clarity, scannability, action-orientation, and tone consistency within the UI itself. Suggest concrete copy improvements with reasoning.`;
+    ? `${manifestSection}## PRD Context\n${JSON.stringify(prdContext, null, 2)}\n\n## Task\nAnalyze all visible text in the attached screenshot(s) — labels, headers, descriptions, button text, column names, status labels, etc. Suggest concrete copy improvements with reasoning. Tag each suggestion with the screen number(s) it applies to.`
+    : `${manifestSection}## Task\nAnalyze all visible text in the attached screenshot(s) — labels, headers, descriptions, button text, column names, status labels, etc. No PRD was provided — focus on clarity, scannability, action-orientation, and tone consistency within the UI itself. Suggest concrete copy improvements with reasoning. Tag each suggestion with the screen number(s) it applies to.`;
 
   const result = await callClaude({
     systemPrompt,

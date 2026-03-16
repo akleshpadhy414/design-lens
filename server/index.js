@@ -28,13 +28,23 @@ app.get("/api/health", (req, res) => {
 
 // Main review endpoint using Server-Sent Events
 app.post("/api/review", async (req, res) => {
-  const { prdText, images, customPrompt = "" } = req.body;
+  const { prdText, screens, images: legacyImages, customPrompt = "" } = req.body;
 
-  if (!images || images.length === 0) {
+  // Support both new screens format and legacy flat images array
+  const resolvedScreens = screens
+    ? screens
+    : (legacyImages || []).map((url, i) => ({ index: i, label: `Screen ${i + 1}`, flowTag: null, url }));
+
+  if (resolvedScreens.length === 0) {
     return res.status(400).json({
       error: "At least one design image is required",
     });
   }
+
+  const images = resolvedScreens.map((s) => s.url);
+  const screenManifest = resolvedScreens
+    .map((s, i) => `${i + 1}. "${s.label}"${s.flowTag ? ` [${s.flowTag}]` : ""}`)
+    .join("\n");
 
   if (!process.env.OPENAI_API_KEY) {
     return res.status(500).json({
@@ -64,7 +74,7 @@ app.post("/api/review", async (req, res) => {
 
     // ─── Agent 2: Visual Hierarchy ───
     sendEvent("agent_start", { agent: "visual-hierarchy" });
-    const hierarchyResult = await runVisualHierarchy({ images, prdContext, customPrompt });
+    const hierarchyResult = await runVisualHierarchy({ images, prdContext, screenManifest, customPrompt });
     const hierarchyFindings = hierarchyResult.findings || [];
     sendEvent("agent_complete", {
       agent: "visual-hierarchy",
@@ -77,6 +87,7 @@ app.post("/api/review", async (req, res) => {
       images,
       prdContext,
       hierarchyFindings,
+      screenManifest,
       customPrompt,
     });
     const uxFindings = uxResult.findings || [];
@@ -87,7 +98,7 @@ app.post("/api/review", async (req, res) => {
 
     // ─── Agent 4: Copy Reviewer ───
     sendEvent("agent_start", { agent: "copy-reviewer" });
-    const copyResult = await runCopyReviewer({ images, prdContext, customPrompt });
+    const copyResult = await runCopyReviewer({ images, prdContext, screenManifest, customPrompt });
     const copySuggestions = copyResult.suggestions || [];
     sendEvent("agent_complete", {
       agent: "copy-reviewer",
@@ -100,6 +111,7 @@ app.post("/api/review", async (req, res) => {
       hierarchyFindings,
       uxFindings,
       copySuggestions,
+      screenManifest,
       customPrompt,
     });
     sendEvent("agent_complete", {

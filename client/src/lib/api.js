@@ -82,14 +82,14 @@ export async function checkHealth() {
  *
  * @param {Object} params
  * @param {string} params.prdText - The PRD text content
- * @param {string[]} params.images - Array of base64 data URLs for design screenshots
+ * @param {Object[]} params.screens - Array of {index, label, flowTag, url} for design screenshots
  * @param {Function} params.onAgentStart - Called when an agent starts: (agentId) => void
  * @param {Function} params.onAgentComplete - Called when an agent completes: (agentId, result) => void
  * @param {Function} params.onComplete - Called when entire review is done: (fullResult) => void
  * @param {Function} params.onError - Called on error: (errorMessage) => void
  * @returns {Function} abort - Call to cancel the request
  */
-export function startReview({ prdText, images, customPrompt = "", onAgentStart, onAgentComplete, onComplete, onError }) {
+export function startReview({ prdText, screens, customPrompt = "", onAgentStart, onAgentComplete, onComplete, onError }) {
   const controller = new AbortController();
 
   (async () => {
@@ -97,7 +97,7 @@ export function startReview({ prdText, images, customPrompt = "", onAgentStart, 
       const res = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prdText, images, customPrompt }),
+        body: JSON.stringify({ prdText, screens, customPrompt }),
         signal: controller.signal,
       });
 

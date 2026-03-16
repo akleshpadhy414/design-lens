@@ -57,10 +57,13 @@ Return JSON:
       "title": "Short descriptive title",
       "severity": "success|warning|error",
       "body": "Detailed observation. Reference specific Highrise components and patterns.",
-      "suggestion": "Actionable improvement referencing correct Highrise component/prop, or null if success"
+      "suggestion": "Actionable improvement referencing correct Highrise component/prop, or null if success",
+      "screens": [1, 2]
     }
   ]
 }
 ```
+
+The `screens` field is REQUIRED — an array of screen numbers (from the screen manifest) that the finding applies to. If a finding applies to overall consistency across all screens, include all screen numbers. If only one screen was provided, use `[1]`.
 
 Prioritize component compliance and PRD compliance issues. An unmet P0 requirement or wrong component choice is always severity "error".
