@@ -18,9 +18,14 @@ export async function runChecklistGen({
   hierarchyFindings,
   uxFindings,
   copySuggestions,
+  screenManifest = "",
   customPrompt = "",
 }) {
-  const userMessage = `## Visual Hierarchy Findings
+  const manifestSection = screenManifest
+    ? `## Screen Manifest\n${screenManifest}\n\n`
+    : "";
+
+  const userMessage = `${manifestSection}## Visual Hierarchy Findings
 ${JSON.stringify(hierarchyFindings, null, 2)}
 
 ## UX Compliance Findings
@@ -30,7 +35,7 @@ ${JSON.stringify(uxFindings, null, 2)}
 ${JSON.stringify(copySuggestions, null, 2)}
 
 ## Task
-Synthesize all findings above into a final design review checklist. Generate an overall summary and rate each checklist item.`;
+Synthesize all findings above into a final design review checklist. Generate an overall summary and rate each checklist item. If a screen manifest with flow tags is provided, include a "Flow Coverage" section evaluating whether key states are represented (happy path, error, empty, loading).`;
 
   const result = await callClaude({
     systemPrompt,

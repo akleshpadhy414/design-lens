@@ -55,6 +55,8 @@ For each checklist item:
 
 Also generate a brief overall summary (2-3 sentences) of the design's strengths and key areas for improvement, specifically noting Highrise compliance and GHL copy guideline adherence.
 
+If a screen manifest with flow tags is provided, include a **Flow Coverage** section in the checklist evaluating whether all expected states are represented (happy path, error states, empty states, loading states). Flag missing states as warnings.
+
 Return JSON:
 ```json
 {
@@ -63,8 +65,11 @@ Return JSON:
     {
       "item": "Checklist item description",
       "status": "success|warning|error",
-      "note": "One-line explanation for warning/error items, null for success"
+      "note": "One-line explanation for warning/error items, null for success",
+      "screens": [1, 2]
     }
   ]
 }
 ```
+
+The `screens` field is REQUIRED — an array of screen numbers that the checklist item most applies to. For items about overall design consistency or flow coverage, include all screen numbers.

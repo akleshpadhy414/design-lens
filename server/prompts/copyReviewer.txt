@@ -94,11 +94,14 @@ Return JSON:
     {
       "current": "The exact text currently shown in the UI",
       "suggested": "Your corrected replacement following GHL guidelines",
-      "reason": "Which GHL copy guideline this violates and why the change is needed"
+      "reason": "Which GHL copy guideline this violates and why the change is needed",
+      "screens": [1]
     }
   ]
 }
 ```
+
+The `screens` field is REQUIRED — an array of screen numbers (from the screen manifest) that the suggestion applies to. If only one screen was provided, use `[1]`.
 
 Guidelines:
 - Be specific — quote the exact text you see in the screenshot

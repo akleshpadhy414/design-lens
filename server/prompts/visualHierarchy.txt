@@ -45,10 +45,13 @@ Return your analysis as JSON:
       "title": "Short descriptive title",
       "severity": "success|warning|error",
       "body": "Detailed observation with reasoning. Reference specific Highrise tokens or components.",
-      "suggestion": "Actionable suggestion referencing specific Highrise tokens/components, or null if severity is success"
+      "suggestion": "Actionable suggestion referencing specific Highrise tokens/components, or null if severity is success",
+      "screens": [1, 3]
     }
   ]
 }
 ```
+
+The `screens` field is REQUIRED — an array of screen numbers (from the screen manifest) that the finding applies to. If a finding applies to overall consistency across all screens, include all screen numbers. If only one screen was provided, use `[1]`.
 
 Be direct. Lead with the most impactful observations. Don't pad with vague praise.

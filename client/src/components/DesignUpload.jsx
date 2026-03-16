@@ -1,6 +1,15 @@
 import { useCallback } from "react";
 import { Image, ChevronLeft, Zap, X, SlidersHorizontal } from "lucide-react";
 
+const FLOW_TAGS = [
+  { value: "", label: "No tag", color: "bg-gray-100 text-gray-500" },
+  { value: "happy-path", label: "Happy path", color: "bg-emerald-100 text-emerald-700" },
+  { value: "error-state", label: "Error state", color: "bg-red-100 text-red-700" },
+  { value: "empty-state", label: "Empty state", color: "bg-amber-100 text-amber-700" },
+  { value: "loading", label: "Loading", color: "bg-blue-100 text-blue-700" },
+  { value: "settings", label: "Settings", color: "bg-purple-100 text-purple-700" },
+];
+
 export default function DesignUpload({ designs, setDesigns, onBack, onRunReview, customPrompt, setCustomPrompt, prdText = "" }) {
   const canProceed = designs.length > 0;
 
@@ -11,7 +20,12 @@ export default function DesignUpload({ designs, setDesigns, onBack, onRunReview,
       reader.onload = (ev) => {
         setDesigns((prev) => [
           ...prev,
-          { name: file.name, url: ev.target.result },
+          {
+            name: file.name,
+            url: ev.target.result,
+            label: file.name.replace(/\.[^.]+$/, ""),
+            flowTag: "",
+          },
         ]);
       };
       reader.readAsDataURL(file);
@@ -21,6 +35,20 @@ export default function DesignUpload({ designs, setDesigns, onBack, onRunReview,
   const removeDesign = useCallback(
     (index) => {
       setDesigns((prev) => prev.filter((_, i) => i !== index));
+    },
+    [setDesigns]
+  );
+
+  const updateLabel = useCallback(
+    (index, label) => {
+      setDesigns((prev) => prev.map((d, i) => (i === index ? { ...d, label } : d)));
+    },
+    [setDesigns]
+  );
+
+  const updateFlowTag = useCallback(
+    (index, flowTag) => {
+      setDesigns((prev) => prev.map((d, i) => (i === index ? { ...d, flowTag } : d)));
     },
     [setDesigns]
   );
@@ -64,27 +92,59 @@ export default function DesignUpload({ designs, setDesigns, onBack, onRunReview,
 
       {designs.length > 0 && (
         <div className="mt-6 grid grid-cols-3 gap-4">
-          {designs.map((d, i) => (
-            <div
-              key={i}
-              className="relative group rounded-lg overflow-hidden border border-gray-200 bg-white"
-            >
-              <img
-                src={d.url}
-                alt={d.name}
-                className="w-full h-32 object-cover"
-              />
-              <div className="p-2">
-                <p className="text-xs text-gray-500 truncate">{d.name}</p>
-              </div>
-              <button
-                onClick={() => removeDesign(i)}
-                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black bg-opacity-50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          {designs.map((d, i) => {
+            const tagInfo = FLOW_TAGS.find((t) => t.value === d.flowTag) || FLOW_TAGS[0];
+            return (
+              <div
+                key={i}
+                className="relative group rounded-lg overflow-hidden border border-gray-200 bg-white"
               >
-                <X size={12} />
-              </button>
-            </div>
-          ))}
+                <img
+                  src={d.url}
+                  alt={d.name}
+                  className="w-full h-32 object-cover"
+                />
+                {/* Flow tag pill on thumbnail */}
+                {d.flowTag && (
+                  <span className={`absolute top-2 left-2 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${tagInfo.color}`}>
+                    {tagInfo.label}
+                  </span>
+                )}
+                {/* Screen number badge */}
+                <span className="absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-black bg-opacity-50 text-white" style={d.flowTag ? { left: "auto", right: 32 } : {}}>
+                  {i + 1}
+                </span>
+                <div className="p-2 space-y-1.5">
+                  {/* Editable label */}
+                  <input
+                    type="text"
+                    value={d.label}
+                    onChange={(e) => updateLabel(i, e.target.value)}
+                    placeholder="Screen label..."
+                    className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1 focus:border-blue-400 focus:ring-1 focus:ring-blue-100 outline-none"
+                  />
+                  {/* Flow tag dropdown */}
+                  <select
+                    value={d.flowTag}
+                    onChange={(e) => updateFlowTag(i, e.target.value)}
+                    className="w-full text-[11px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 outline-none focus:border-blue-400"
+                  >
+                    {FLOW_TAGS.map((tag) => (
+                      <option key={tag.value} value={tag.value}>
+                        {tag.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => removeDesign(i)}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black bg-opacity-50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 

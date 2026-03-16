@@ -60,11 +60,16 @@ export default function App() {
     setReviewReady(false);
     setError(null);
 
-    const images = designs.map((d) => d.url);
+    const screens = designs.map((d, i) => ({
+      index: i,
+      label: d.label || d.name.replace(/\.[^.]+$/, ""),
+      flowTag: d.flowTag || null,
+      url: d.url,
+    }));
 
     startReview({
       prdText,
-      images,
+      screens,
       customPrompt,
       onAgentStart: (agentId) => {
         setAgentStatuses((prev) => ({ ...prev, [agentId]: "running" }));
@@ -224,7 +229,7 @@ export default function App() {
             )}
 
             {step === 3 && (
-              <ReviewResults review={reviewResult} onStartNew={handleStartNew} />
+              <ReviewResults review={reviewResult} onStartNew={handleStartNew} screens={designs} />
             )}
           </>
         )}
