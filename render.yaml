@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: designlens
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: cd server && npm run build
+    startCommand: cd server && node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20
+    healthCheckPath: /api/health
+    autoDeploy: true
