@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "build": "npm install && npm --prefix ../client install && npm --prefix ../client run build"
+    "build": "npm install && npm --prefix ../client install --include=dev && npm --prefix ../client run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
