@@ -1,12 +1,14 @@
-import { useState, useCallback, useEffect } from "react";
-import { Sparkles, Bot, AlertTriangle, Search, Wand2 } from "lucide-react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { Sparkles, Bot, AlertTriangle, Search, Wand2, Settings as SettingsIcon } from "lucide-react";
 import StepIndicator from "./components/StepIndicator.jsx";
 import PrdUpload from "./components/PrdUpload.jsx";
 import DesignUpload from "./components/DesignUpload.jsx";
 import AgentProcessing from "./components/AgentProcessing.jsx";
 import ReviewResults from "./components/ReviewResults.jsx";
 import GenerateResults from "./components/GenerateResults.jsx";
+import SettingsPanel from "./components/SettingsPanel.jsx";
 import { startReview, startGenerate, checkHealth, GENERATE_AGENTS } from "./lib/api.js";
+import { useSettings, resolveActiveCredential } from "./lib/settings.js";
 
 const REVIEW_STEPS = ["PRD (Optional)", "Add Designs", "AI Review", "Results"];
 const GENERATE_STEPS = ["Paste PRD", "AI Generation", "Results"];
@@ -23,17 +25,36 @@ export default function App() {
   const [reviewReady, setReviewReady] = useState(false);
   const [error, setError] = useState(null);
   const [backendStatus, setBackendStatus] = useState(null);
+  const [health, setHealth] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings] = useSettings();
 
   // Check backend health on mount
   useEffect(() => {
     checkHealth().then((res) => {
       if (res.status === "ok") {
-        setBackendStatus(res.hasApiKey ? "ok" : "no-key");
+        setHealth(res);
+        setBackendStatus("ok");
       } else {
         setBackendStatus("offline");
       }
     });
   }, []);
+
+  const activeCredential = useMemo(
+    () => resolveActiveCredential(settings, health),
+    [settings, health]
+  );
+
+  const canRun = activeCredential.ok;
+  const credPayload = activeCredential.ok
+    ? { provider: activeCredential.provider, apiKey: activeCredential.apiKey }
+    : null;
+
+  // Auto-open settings if we can't run
+  useEffect(() => {
+    if (backendStatus === "ok" && !canRun) setSettingsOpen(true);
+  }, [backendStatus, canRun]);
 
   const steps = mode === "review" ? REVIEW_STEPS : GENERATE_STEPS;
 
@@ -54,6 +75,10 @@ export default function App() {
 
   // Run the AI review pipeline
   const runReview = useCallback(() => {
+    if (!canRun) {
+      setSettingsOpen(true);
+      return;
+    }
     setStep(2);
     setAgentStatuses({});
     setReviewResult(null);
@@ -71,6 +96,7 @@ export default function App() {
       prdText,
       screens,
       customPrompt,
+      credentials: credPayload,
       onAgentStart: (agentId) => {
         setAgentStatuses((prev) => ({ ...prev, [agentId]: "running" }));
       },
@@ -85,10 +111,14 @@ export default function App() {
         setError(message);
       },
     });
-  }, [prdText, designs, customPrompt]);
+  }, [prdText, designs, customPrompt, credPayload, canRun]);
 
   // Run the AI generate pipeline
   const runGenerate = useCallback(() => {
+    if (!canRun) {
+      setSettingsOpen(true);
+      return;
+    }
     setStep(1);
     setAgentStatuses({});
     setGenerateResult(null);
@@ -97,6 +127,7 @@ export default function App() {
 
     startGenerate({
       prdText,
+      credentials: credPayload,
       onAgentStart: (agentId) => {
         setAgentStatuses((prev) => ({ ...prev, [agentId]: "running" }));
       },
@@ -111,7 +142,7 @@ export default function App() {
         setError(message);
       },
     });
-  }, [prdText]);
+  }, [prdText, credPayload, canRun]);
 
   // Reset everything
   const handleStartNew = useCallback(() => {
@@ -165,21 +196,39 @@ export default function App() {
               </button>
             </div>
 
-            {backendStatus === "no-key" && (
-              <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
-                <AlertTriangle size={12} />
-                <span>No API key configured</span>
-              </div>
-            )}
             {backendStatus === "offline" && (
               <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 px-2 py-1 rounded-md border border-red-200">
                 <AlertTriangle size={12} />
                 <span>Backend offline</span>
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-200">
-              <span className="font-medium">Highrise v1</span>
-            </div>
+            {backendStatus === "ok" && !canRun && (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-md border border-amber-200"
+              >
+                <AlertTriangle size={12} />
+                <span>
+                  {activeCredential.reason === "pick-provider"
+                    ? "Pick a provider"
+                    : "Add an API key"}
+                </span>
+              </button>
+            )}
+            {canRun && (
+              <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-200">
+                <span className="font-medium">
+                  {activeCredential.provider === "anthropic" ? "Claude" : "GPT-4o"}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+              aria-label="Settings"
+            >
+              <SettingsIcon size={16} />
+            </button>
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <Bot size={14} />
               <span>
@@ -191,6 +240,12 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        envKeys={health?.env}
+      />
 
       <div className="max-w-6xl mx-auto px-6 py-8">
         <StepIndicator steps={steps} current={step} />

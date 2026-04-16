@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { callClaude } from "../lib/claude.js";
+import { callModel } from "../lib/provider.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const agentPrompt = readFileSync(
@@ -20,6 +20,7 @@ export async function runChecklistGen({
   copySuggestions,
   screenManifest = "",
   customPrompt = "",
+  credentials,
 }) {
   const manifestSection = screenManifest
     ? `## Screen Manifest\n${screenManifest}\n\n`
@@ -37,10 +38,10 @@ ${JSON.stringify(copySuggestions, null, 2)}
 ## Task
 Synthesize all findings above into a final design review checklist. Generate an overall summary and rate each checklist item. If a screen manifest with flow tags is provided, include a "Flow Coverage" section evaluating whether key states are represented (happy path, error, empty, loading).`;
 
-  const result = await callClaude({
+  return await callModel({
+    ...credentials,
     systemPrompt,
     userMessage,
     customInstructions: customPrompt,
   });
-  return result;
 }
