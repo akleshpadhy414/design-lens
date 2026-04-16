@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import { runPrdParser } from "./agents/prdParser.js";
 import { runVisualHierarchy } from "./agents/visualHierarchy.js";
 import { runUxCompliance } from "./agents/uxCompliance.js";
@@ -13,11 +15,25 @@ import { resolveCredentials, DEFAULT_MODELS } from "./lib/provider.js";
 
 dotenv.config();
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isProduction = process.env.NODE_ENV === "production";
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json({ limit: "200mb" }));
+
+// Baseline security headers. We skip strict CSP because Generate mode renders
+// model-produced HTML (with Tailwind CDN) inside a sandboxed srcdoc iframe,
+// which inherits the parent CSP — a strict policy would break the preview.
+// Sandbox attributes on the iframe still provide isolation.
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  next();
+});
 
 // Health check — reports which providers have a server-side env key, so the
 // client can know whether the user needs to supply their own via Settings.
@@ -172,12 +188,22 @@ app.post("/api/generate", async (req, res) => {
   }
 });
 
+// ─── Production: serve the built client from the same origin ───
+if (isProduction) {
+  const clientDist = path.resolve(__dirname, "../client/dist");
+  app.use(express.static(clientDist));
+  // SPA fallback — any non-API path returns index.html so client routing works.
+  app.get(/^\/(?!api\/).*/, (req, res) => {
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}
+
 app.listen(PORT, () => {
   const envProviders = [
     process.env.OPENAI_API_KEY && "OpenAI",
     process.env.ANTHROPIC_API_KEY && "Anthropic",
   ].filter(Boolean);
-  console.log(`\n  DesignLens server running on http://localhost:${PORT}`);
+  console.log(`\n  DesignLens server running on port ${PORT} (${isProduction ? "production" : "dev"})`);
   console.log(
     `  Env API keys: ${envProviders.length ? envProviders.join(", ") : "none (users must supply via UI)"}\n`
   );

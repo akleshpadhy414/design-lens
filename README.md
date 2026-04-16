@@ -46,4 +46,15 @@ The app opens at http://localhost:5173.
 
 - **Frontend**: React + Vite + Tailwind CSS v4 + Lucide icons
 - **Backend**: Express.js with Server-Sent Events (SSE)
-- **AI**: OpenAI
+- **AI**: OpenAI (GPT-4o) or Anthropic (Claude Sonnet 4.6) — users pick via in-app Settings
+
+## Deploy to Render (free tier)
+
+A one-click blueprint is in [render.yaml](render.yaml). Flow:
+
+1. Fork/push this repo to your GitHub account.
+2. In Render, **New → Blueprint** and point it at the repo.
+3. Accept defaults — no env vars needed. Users supply their own API keys in-app.
+4. First build takes ~3–5 min. After it's live, visit the `*.onrender.com` URL and add a key in Settings.
+
+The free plan spins down after 15 min of inactivity; the next request wakes it in ~30s.
