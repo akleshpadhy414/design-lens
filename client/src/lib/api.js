@@ -89,7 +89,7 @@ export async function checkHealth() {
  * @param {Function} params.onError - Called on error: (errorMessage) => void
  * @returns {Function} abort - Call to cancel the request
  */
-export function startReview({ prdText, screens, customPrompt = "", onAgentStart, onAgentComplete, onComplete, onError }) {
+export function startReview({ prdText, screens, customPrompt = "", credentials, onAgentStart, onAgentComplete, onComplete, onError }) {
   const controller = new AbortController();
 
   (async () => {
@@ -97,7 +97,7 @@ export function startReview({ prdText, screens, customPrompt = "", onAgentStart,
       const res = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prdText, screens, customPrompt }),
+        body: JSON.stringify({ prdText, screens, customPrompt, ...credentials }),
         signal: controller.signal,
       });
 
@@ -168,7 +168,7 @@ export function startReview({ prdText, screens, customPrompt = "", onAgentStart,
  * @param {Function} params.onError - Called on error: (errorMessage) => void
  * @returns {Function} abort - Call to cancel the request
  */
-export function startGenerate({ prdText, onAgentStart, onAgentComplete, onComplete, onError }) {
+export function startGenerate({ prdText, credentials, onAgentStart, onAgentComplete, onComplete, onError }) {
   const controller = new AbortController();
 
   (async () => {
@@ -176,7 +176,7 @@ export function startGenerate({ prdText, onAgentStart, onAgentComplete, onComple
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prdText }),
+        body: JSON.stringify({ prdText, ...credentials }),
         signal: controller.signal,
       });
 

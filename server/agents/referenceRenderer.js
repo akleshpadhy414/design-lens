@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { callClaude } from "../lib/claude.js";
+import { callModel } from "../lib/provider.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const agentPrompt = readFileSync(
@@ -14,12 +14,12 @@ const highriseContext = readFileSync(
 );
 const systemPrompt = `You are working with the following design system and copy guidelines:\n\n${highriseContext}\n\n${agentPrompt}`;
 
-export async function runReferenceRenderer({ scaffold }) {
+export async function runReferenceRenderer({ scaffold, credentials }) {
   const userMessage = `## Enriched Component Tree\n${JSON.stringify(scaffold, null, 2)}\n\n## Task\nRender this component tree as a self-contained HTML wireframe using Tailwind CDN. Every component in the tree must be visually represented.`;
 
-  const result = await callClaude({
+  return await callModel({
+    ...credentials,
     systemPrompt,
     userMessage,
   });
-  return result;
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { callClaude } from "../lib/claude.js";
+import { callModel } from "../lib/provider.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const agentPrompt = readFileSync(
@@ -14,12 +14,12 @@ const highriseContext = readFileSync(
 );
 const systemPrompt = `You are working with the following design system and copy guidelines:\n\n${highriseContext}\n\n${agentPrompt}`;
 
-export async function runLayoutScaffolder({ prdText }) {
+export async function runLayoutScaffolder({ prdText, credentials }) {
   const userMessage = `## PRD\n${prdText}\n\n## Task\nGenerate a component tree for the UI described in this PRD using only Highrise components.`;
 
-  const result = await callClaude({
+  return await callModel({
+    ...credentials,
     systemPrompt,
     userMessage,
   });
-  return result;
 }
