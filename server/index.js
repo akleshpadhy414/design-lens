@@ -134,26 +134,51 @@ app.post("/api/review", requireUser, async (req, res) => {
       sendEvent("agent_complete", { agent: "prd-parser", result: prdContext });
     }
 
+    // Visual Hierarchy and Copy Reviewer are independent — run them in
+    // parallel. UX Compliance depends on Visual Hierarchy's findings, so it
+    // still runs after VH completes.
     sendEvent("agent_start", { agent: "visual-hierarchy" });
-    const hierarchyResult = await runVisualHierarchy({
-      images, prdContext, screenManifest, customPrompt, credentials,
-    });
-    const hierarchyFindings = hierarchyResult.findings || [];
-    sendEvent("agent_complete", { agent: "visual-hierarchy", result: hierarchyResult });
-
-    sendEvent("agent_start", { agent: "ux-compliance" });
-    const uxResult = await runUxCompliance({
-      images, prdContext, hierarchyFindings, screenManifest, customPrompt, credentials,
-    });
-    const uxFindings = uxResult.findings || [];
-    sendEvent("agent_complete", { agent: "ux-compliance", result: uxResult });
-
     sendEvent("agent_start", { agent: "copy-reviewer" });
-    const copyResult = await runCopyReviewer({
+
+    const hierarchyPromise = runVisualHierarchy({
       images, prdContext, screenManifest, customPrompt, credentials,
+    }).then((result) => {
+      sendEvent("agent_complete", { agent: "visual-hierarchy", result });
+      return result;
     });
+
+    const copyPromise = runCopyReviewer({
+      images, prdContext, screenManifest, customPrompt, credentials,
+    }).then((result) => {
+      sendEvent("agent_complete", { agent: "copy-reviewer", result });
+      return result;
+    });
+
+    // UX Compliance depends on hierarchy; start it as soon as hierarchy is
+    // done, without waiting for Copy Reviewer.
+    const uxPromise = hierarchyPromise.then((hierarchyResult) => {
+      sendEvent("agent_start", { agent: "ux-compliance" });
+      return runUxCompliance({
+        images,
+        prdContext,
+        hierarchyFindings: hierarchyResult.findings || [],
+        screenManifest,
+        customPrompt,
+        credentials,
+      }).then((result) => {
+        sendEvent("agent_complete", { agent: "ux-compliance", result });
+        return result;
+      });
+    });
+
+    const [hierarchyResult, copyResult, uxResult] = await Promise.all([
+      hierarchyPromise,
+      copyPromise,
+      uxPromise,
+    ]);
+    const hierarchyFindings = hierarchyResult.findings || [];
+    const uxFindings = uxResult.findings || [];
     const copySuggestions = copyResult.suggestions || [];
-    sendEvent("agent_complete", { agent: "copy-reviewer", result: copyResult });
 
     sendEvent("agent_start", { agent: "checklist-gen" });
     const checklistResult = await runChecklistGen({
