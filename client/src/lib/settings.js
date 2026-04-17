@@ -1,100 +1,121 @@
 /**
- * User settings (API keys + provider choice) — persisted in localStorage.
- * Keys never leave the user's browser except in the request body to our own
- * backend. Nothing is ever logged or stored server-side.
+ * Client-side settings store backed by server-side encrypted key storage.
+ * The only thing persisted in the browser is the user's preferred provider
+ * (when they have both an OpenAI and an Anthropic key saved). Keys
+ * themselves never touch the browser's storage.
  */
-import { useSyncExternalStore, useCallback } from "react";
+import { useSyncExternalStore, useCallback, useEffect } from "react";
+import { apiGet, apiPost, apiDelete } from "./api.js";
 
-const STORAGE_KEY = "designlens.settings.v1";
+const PREF_KEY = "designlens.preferredProvider.v1";
 
-const defaults = {
-  openaiKey: "",
-  anthropicKey: "",
-  preferredProvider: null, // "openai" | "anthropic" | null (auto)
+// ── In-memory cache of the latest metadata from the server ──
+const emptyMeta = {
+  openai: { set: false, last4: null, updatedAt: null },
+  anthropic: { set: false, last4: null, updatedAt: null },
 };
 
-function read() {
+let state = {
+  meta: emptyMeta,
+  loading: false,
+  loaded: false,
+  error: null,
+  preferredProvider: readPref(),
+};
+
+function readPref() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...defaults };
-    return { ...defaults, ...JSON.parse(raw) };
+    const v = localStorage.getItem(PREF_KEY);
+    return v === "openai" || v === "anthropic" ? v : null;
   } catch {
-    return { ...defaults };
+    return null;
   }
 }
 
-const listeners = new Set();
-let cache = read();
-
-function notify() {
-  listeners.forEach((l) => l());
+function writePref(v) {
+  try {
+    if (v) localStorage.setItem(PREF_KEY, v);
+    else localStorage.removeItem(PREF_KEY);
+  } catch {}
 }
 
+const listeners = new Set();
+function emit() {
+  listeners.forEach((l) => l());
+}
 function subscribe(cb) {
   listeners.add(cb);
   return () => listeners.delete(cb);
 }
+function getSnapshot() {
+  return state;
+}
 
-function write(next) {
-  cache = next;
+export async function refreshKeysMeta() {
+  state = { ...state, loading: true, error: null };
+  emit();
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // ignore quota errors
+    const meta = await apiGet("/api/settings/keys");
+    state = { ...state, meta, loading: false, loaded: true };
+  } catch (err) {
+    state = { ...state, loading: false, error: err.message || "Failed to load" };
   }
-  notify();
+  emit();
 }
 
-export function getSettings() {
-  return cache;
+export async function saveKey(provider, apiKey) {
+  const meta = await apiPost("/api/settings/keys", { provider, apiKey });
+  state = { ...state, meta, loaded: true, error: null };
+  emit();
 }
 
-export function setSettings(patch) {
-  write({ ...cache, ...patch });
+export async function removeKey(provider) {
+  const meta = await apiDelete(`/api/settings/keys/${provider}`);
+  state = { ...state, meta, error: null };
+  // If we just removed the preferred provider, clear the preference.
+  if (state.preferredProvider === provider) {
+    state = { ...state, preferredProvider: null };
+    writePref(null);
+  }
+  emit();
 }
 
-export function clearKeys() {
-  write({ ...defaults });
+export function setPreferredProvider(v) {
+  state = { ...state, preferredProvider: v };
+  writePref(v);
+  emit();
 }
 
 /**
- * Decide which provider/key to send with the next API request.
- *
- * @param {{ env: { openai: boolean, anthropic: boolean } | null }} health
- * @returns {{ ok: true, provider: "openai"|"anthropic", apiKey?: string }
- *         | { ok: false, reason: string, needsSelection?: boolean }}
- *
- * apiKey is omitted when we want the server to use its env key.
+ * Decide which provider to send with the next API call. The server still
+ * makes the authoritative decision — this just lets the client show the
+ * right badge and avoid sending ambiguous requests.
  */
-export function resolveActiveCredential(settings, health) {
-  const available = {
-    openai: !!settings.openaiKey || !!health?.env?.openai,
-    anthropic: !!settings.anthropicKey || !!health?.env?.anthropic,
-  };
-
-  const providers = Object.entries(available)
-    .filter(([, v]) => v)
-    .map(([k]) => k);
-
-  if (providers.length === 0) {
-    return { ok: false, reason: "no-keys" };
+export function resolveActiveProvider(snapshot) {
+  const providers = [];
+  if (snapshot.meta.openai.set) providers.push("openai");
+  if (snapshot.meta.anthropic.set) providers.push("anthropic");
+  if (providers.length === 0) return { ok: false, reason: "no-keys" };
+  if (providers.length === 1) return { ok: true, provider: providers[0] };
+  if (snapshot.preferredProvider && providers.includes(snapshot.preferredProvider)) {
+    return { ok: true, provider: snapshot.preferredProvider };
   }
-
-  let provider;
-  if (providers.length === 1) {
-    provider = providers[0];
-  } else if (settings.preferredProvider && providers.includes(settings.preferredProvider)) {
-    provider = settings.preferredProvider;
-  } else {
-    return { ok: false, reason: "pick-provider", needsSelection: true };
-  }
-
-  const userKey = provider === "openai" ? settings.openaiKey : settings.anthropicKey;
-  return userKey ? { ok: true, provider, apiKey: userKey } : { ok: true, provider };
+  return { ok: false, reason: "pick-provider" };
 }
 
-export function useSettings() {
-  const snapshot = useSyncExternalStore(subscribe, getSettings, getSettings);
-  const update = useCallback((patch) => setSettings(patch), []);
-  return [snapshot, update];
+export function useKeysStore() {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
+
+/**
+ * Ensure the metadata has been fetched at least once. Safe to call from
+ * multiple components — dedupes via the `loaded` flag.
+ */
+export function useAutoLoadKeys() {
+  const snap = useKeysStore();
+  useEffect(() => {
+    if (!snap.loaded && !snap.loading) refreshKeysMeta();
+  }, [snap.loaded, snap.loading]);
+}
+
+export { state as _debugState };
