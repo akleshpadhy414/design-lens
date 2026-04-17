@@ -56,11 +56,7 @@ export default function AgentProcessing({ agentStatuses, reviewReady, error, onV
           <p className="text-sm text-red-700 font-medium">
             {isGenerateMode ? "Generation Error" : "Review Error"}
           </p>
-          <p className="text-xs text-red-600 mt-1">{error}</p>
-          <p className="text-xs text-gray-500 mt-2">
-            Make sure the backend is running and your API key is configured in{" "}
-            <code className="bg-gray-100 px-1 rounded">server/.env</code>
-          </p>
+          <p className="text-xs text-red-600 mt-1 break-words">{error}</p>
         </div>
       )}
 

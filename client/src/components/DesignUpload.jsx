@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { Image, ChevronLeft, Zap, X, SlidersHorizontal } from "lucide-react";
+import { prepareImage } from "../lib/image.js";
 
 const FLOW_TAGS = [
   { value: "", label: "No tag", color: "bg-gray-100 text-gray-500" },
@@ -13,23 +14,26 @@ const FLOW_TAGS = [
 export default function DesignUpload({ designs, setDesigns, onBack, onRunReview, customPrompt, setCustomPrompt, prdText = "" }) {
   const canProceed = designs.length > 0;
 
-  const handleDesignUpload = useCallback((e) => {
+  const handleDesignUpload = useCallback(async (e) => {
     const files = Array.from(e.target.files);
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
+    for (const file of files) {
+      try {
+        const url = await prepareImage(file);
         setDesigns((prev) => [
           ...prev,
           {
             name: file.name,
-            url: ev.target.result,
+            url,
             label: file.name.replace(/\.[^.]+$/, ""),
             flowTag: "",
           },
         ]);
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch (err) {
+        console.error(`Failed to process ${file.name}:`, err);
+      }
+    }
+    // Reset input so the same file can be picked again after removal.
+    e.target.value = "";
   }, [setDesigns]);
 
   const removeDesign = useCallback(
