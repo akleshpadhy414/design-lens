@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import {
   FileText,
   Layout,
@@ -24,6 +25,7 @@ const ICON_MAP = {
 
 export default function AgentCard({ agent, status }) {
   const IconComponent = ICON_MAP[agent.icon] || FileText;
+  const elapsed = useElapsed(status);
   return (
     <div
       className={`relative overflow-hidden rounded-xl border p-4 transition-all duration-500 ${
@@ -51,7 +53,12 @@ export default function AgentCard({ agent, status }) {
               {agent.name}
             </h4>
             {status === "running" && (
-              <Loader size={14} className="text-blue-500 animate-spin" />
+              <>
+                <Loader size={14} className="text-blue-500 animate-spin" />
+                <span className="text-xs text-blue-600 font-mono tabular-nums">
+                  {formatElapsed(elapsed)}
+                </span>
+              </>
             )}
             {status === "complete" && (
               <CheckCircle size={14} className="text-emerald-500" />
@@ -65,4 +72,32 @@ export default function AgentCard({ agent, status }) {
       </div>
     </div>
   );
+}
+
+function useElapsed(status) {
+  const [seconds, setSeconds] = useState(0);
+  const startedAt = useRef(null);
+
+  useEffect(() => {
+    if (status !== "running") {
+      startedAt.current = null;
+      setSeconds(0);
+      return;
+    }
+    startedAt.current = Date.now();
+    setSeconds(0);
+    const id = setInterval(() => {
+      setSeconds(Math.floor((Date.now() - startedAt.current) / 1000));
+    }, 500);
+    return () => clearInterval(id);
+  }, [status]);
+
+  return seconds;
+}
+
+function formatElapsed(s) {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}m ${r.toString().padStart(2, "0")}s`;
 }
