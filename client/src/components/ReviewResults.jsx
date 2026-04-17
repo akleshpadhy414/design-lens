@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Search,
   Layout,
@@ -10,9 +10,14 @@ import {
   Monitor,
   Layers,
   List,
+  Copy as CopyIcon,
+  Check as CheckIcon,
+  Maximize2,
 } from "lucide-react";
 import SeverityBadge from "./SeverityBadge.jsx";
 import ChecklistItem from "./ChecklistItem.jsx";
+import ScreenLightbox, { useLightbox } from "./ScreenLightbox.jsx";
+import DownloadMenu from "./DownloadMenu.jsx";
 
 const FLOW_TAG_COLORS = {
   "happy-path": "bg-emerald-100 text-emerald-700",
@@ -25,6 +30,9 @@ const FLOW_TAG_COLORS = {
 export default function ReviewResults({ review, onStartNew, screens = [] }) {
   const [activeTab, setActiveTab] = useState("hierarchy");
   const [viewMode, setViewMode] = useState("all"); // "all" | "by-screen" | "by-flow"
+  const lightbox = useLightbox();
+
+  const openScreen = useCallback((i) => lightbox.openAt(i), [lightbox]);
 
   if (!review) return null;
 
@@ -120,6 +128,41 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
 
   return (
     <div>
+      {/* Screens rail — click to preview full-size */}
+      {screens.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Monitor size={14} className="text-gray-400" />
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Screens ({screens.length})
+            </h3>
+            <span className="text-[11px] text-gray-400">— click to preview</span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {screens.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => openScreen(i)}
+                className="shrink-0 group relative"
+                title={`${i + 1}. ${s.label}`}
+              >
+                <img
+                  src={s.url}
+                  alt={s.label}
+                  className="h-20 w-auto max-w-[140px] object-cover rounded-lg border border-gray-200 group-hover:border-blue-400 transition-colors"
+                />
+                <div className="absolute top-1 left-1 text-[10px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded">
+                  {i + 1}
+                </div>
+                <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                  <Maximize2 size={16} />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Score summary */}
       <div className="grid grid-cols-4 gap-4 mb-8">
         <div className="col-span-1 bg-white rounded-xl border border-gray-200 p-5">
@@ -217,7 +260,7 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
         {(activeTab === "hierarchy" || activeTab === "usability") && (
           <>
             {viewMode === "all" && currentFindings.map((item, i) => (
-              <FindingCard key={i} item={item} screens={screens} />
+              <FindingCard key={i} item={item} screens={screens} onOpenScreen={openScreen} />
             ))}
 
             {viewMode === "by-screen" && hasMultipleScreens && (
@@ -225,14 +268,20 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
                 const screen = screens[screenNum - 1];
                 if (!screen) return null;
                 return (
-                  <ScreenGroup key={screenNum} screen={screen} screenNum={parseInt(screenNum)} findings={findings} />
+                  <ScreenGroup
+                    key={screenNum}
+                    screen={screen}
+                    screenNum={parseInt(screenNum)}
+                    findings={findings}
+                    onOpenScreen={openScreen}
+                  />
                 );
               })
             )}
 
             {viewMode === "by-flow" && hasFlowTags && (
               Object.entries(findingsByFlow).map(([tag, { screens: flowScreens, findings }]) => (
-                <FlowGroup key={tag} tag={tag} screens={flowScreens} findings={findings} />
+                <FlowGroup key={tag} tag={tag} screens={flowScreens} findings={findings} onOpenScreen={openScreen} />
               ))
             )}
           </>
@@ -242,7 +291,7 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
         {activeTab === "copy" && (
           <>
             {viewMode === "all" && (
-              <CopyTable suggestions={copySuggestions} screens={screens} />
+              <CopyTable suggestions={copySuggestions} screens={screens} onOpenScreen={openScreen} />
             )}
 
             {viewMode === "by-screen" && hasMultipleScreens && (
@@ -251,8 +300,8 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
                 if (!screen || suggestions.length === 0) return null;
                 return (
                   <div key={screenNum}>
-                    <ScreenHeader screen={screen} screenNum={parseInt(screenNum)} />
-                    <CopyTable suggestions={suggestions} screens={screens} compact />
+                    <ScreenHeader screen={screen} screenNum={parseInt(screenNum)} onOpenScreen={openScreen} />
+                    <CopyTable suggestions={suggestions} screens={screens} compact onOpenScreen={openScreen} />
                   </div>
                 );
               })
@@ -268,7 +317,7 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
                 return (
                   <div key={tag}>
                     <FlowHeader tag={tag} screenCount={flowScreens.length} />
-                    <CopyTable suggestions={flowSuggestions} screens={screens} compact />
+                    <CopyTable suggestions={flowSuggestions} screens={screens} compact onOpenScreen={openScreen} />
                   </div>
                 );
               })
@@ -298,38 +347,60 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
       </div>
 
       {/* Action bar */}
-      <div className="mt-8 flex items-center justify-between">
+      <div className="mt-8 flex items-center justify-between gap-3">
         <button
           onClick={onStartNew}
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
         >
           <Zap size={16} /> Start New Review
         </button>
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <Coffee size={14} />
-          <span>Reviewed by {review.prdContext ? "5" : "4"} AI agents</span>
+        <div className="flex items-center gap-3">
+          <DownloadMenu review={review} screens={screens} />
+          <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400">
+            <Coffee size={14} />
+            <span>Reviewed by {review.prdContext ? "5" : "4"} AI agents</span>
+          </div>
         </div>
       </div>
+
+      <ScreenLightbox
+        screens={screens}
+        index={lightbox.index}
+        onClose={lightbox.close}
+        onChange={lightbox.setIndex}
+      />
     </div>
   );
 }
 
-// ─── Screen badges shown on finding cards ───
-function ScreenBadges({ screenNums = [], screens = [] }) {
+// ─── Screen badges shown on finding cards; clickable to open the lightbox ───
+function ScreenBadges({ screenNums = [], screens = [], onOpenScreen }) {
   if (!screenNums.length || screens.length <= 1) return null;
   return (
     <div className="flex gap-1 flex-wrap">
       {screenNums.map((num) => {
         const screen = screens[num - 1];
         const label = screen ? screen.label : `Screen ${num}`;
-        return (
-          <span
-            key={num}
-            className="inline-flex items-center gap-1 text-[10px] font-medium bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
-            title={label}
-          >
+        const classes =
+          "inline-flex items-center gap-1 text-[10px] font-medium bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded";
+        const body = (
+          <>
             <span className="font-bold">{num}</span>
             <span className="max-w-[80px] truncate">{label}</span>
+          </>
+        );
+        return onOpenScreen && screen ? (
+          <button
+            key={num}
+            onClick={() => onOpenScreen(num - 1)}
+            className={`${classes} hover:bg-blue-100 hover:text-blue-700 transition-colors`}
+            title={`Preview ${label}`}
+          >
+            {body}
+          </button>
+        ) : (
+          <span key={num} className={classes} title={label}>
+            {body}
           </span>
         );
       })}
@@ -337,15 +408,35 @@ function ScreenBadges({ screenNums = [], screens = [] }) {
   );
 }
 
-// ─── Finding card with screen badges ───
-function FindingCard({ item, screens = [] }) {
+// ─── Finding card with screen badges + copy button ───
+function FindingCard({ item, screens = [], onOpenScreen }) {
+  const [copied, setCopied] = useState(false);
+  const copyText = useCallback(() => {
+    const parts = [
+      `${item.title}${item.severity ? ` [${item.severity}]` : ""}`,
+      item.body || "",
+    ];
+    if (item.suggestion) parts.push(`Suggestion: ${item.suggestion}`);
+    navigator.clipboard.writeText(parts.filter(Boolean).join("\n\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [item]);
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 group relative">
+      <button
+        onClick={copyText}
+        className="absolute top-3 right-3 p-1.5 rounded-md text-gray-300 hover:text-gray-700 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity"
+        title={copied ? "Copied!" : "Copy finding"}
+      >
+        {copied ? <CheckIcon size={13} className="text-emerald-500" /> : <CopyIcon size={13} />}
+      </button>
+      <div className="flex items-center gap-3 mb-2 pr-8">
         <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
         <SeverityBadge severity={item.severity} />
       </div>
-      <ScreenBadges screenNums={item.screens} screens={screens} />
+      <ScreenBadges screenNums={item.screens} screens={screens} onOpenScreen={onOpenScreen} />
       <p className="text-sm text-gray-600 leading-relaxed mt-2">{item.body}</p>
       {item.suggestion && (
         <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -357,11 +448,28 @@ function FindingCard({ item, screens = [] }) {
   );
 }
 
-// ─── Screen group header with thumbnail ───
-function ScreenHeader({ screen, screenNum }) {
+// ─── Screen group header with clickable thumbnail ───
+function ScreenHeader({ screen, screenNum, onOpenScreen }) {
+  const thumb = (
+    <img
+      src={screen.url}
+      alt={screen.label}
+      className="w-12 h-8 rounded border border-gray-200 object-cover"
+    />
+  );
   return (
     <div className="flex items-center gap-3 mb-3 mt-6 first:mt-0">
-      <img src={screen.url} alt={screen.label} className="w-12 h-8 rounded border border-gray-200 object-cover" />
+      {onOpenScreen ? (
+        <button
+          onClick={() => onOpenScreen(screenNum - 1)}
+          className="hover:opacity-80 transition-opacity"
+          title={`Preview ${screen.label}`}
+        >
+          {thumb}
+        </button>
+      ) : (
+        thumb
+      )}
       <div className="flex items-center gap-2">
         <span className="text-xs font-bold text-gray-400">#{screenNum}</span>
         <h3 className="text-sm font-semibold text-gray-900">{screen.label}</h3>
@@ -375,16 +483,16 @@ function ScreenHeader({ screen, screenNum }) {
   );
 }
 
-function ScreenGroup({ screen, screenNum, findings }) {
+function ScreenGroup({ screen, screenNum, findings, onOpenScreen }) {
   return (
     <div>
-      <ScreenHeader screen={screen} screenNum={screenNum} />
+      <ScreenHeader screen={screen} screenNum={screenNum} onOpenScreen={onOpenScreen} />
       {findings.length === 0 ? (
         <p className="text-xs text-gray-400 ml-15 mb-4">No findings for this screen.</p>
       ) : (
         <div className="space-y-3 mb-6">
           {findings.map((item, i) => (
-            <FindingCard key={i} item={item} screens={[]} />
+            <FindingCard key={i} item={item} screens={[]} onOpenScreen={onOpenScreen} />
           ))}
         </div>
       )}
@@ -405,7 +513,7 @@ function FlowHeader({ tag, screenCount }) {
   );
 }
 
-function FlowGroup({ tag, screens: flowScreens, findings }) {
+function FlowGroup({ tag, screens: flowScreens, findings, onOpenScreen }) {
   return (
     <div>
       <FlowHeader tag={tag} screenCount={flowScreens.length} />
@@ -414,7 +522,7 @@ function FlowGroup({ tag, screens: flowScreens, findings }) {
       ) : (
         <div className="space-y-3 mb-6">
           {findings.map((item, i) => (
-            <FindingCard key={i} item={item} screens={[]} />
+            <FindingCard key={i} item={item} screens={flowScreens} onOpenScreen={onOpenScreen} />
           ))}
         </div>
       )}
@@ -423,7 +531,7 @@ function FlowGroup({ tag, screens: flowScreens, findings }) {
 }
 
 // ─── Copy suggestions table ───
-function CopyTable({ suggestions, screens = [], compact = false }) {
+function CopyTable({ suggestions, screens = [], compact = false, onOpenScreen }) {
   if (suggestions.length === 0) {
     return (
       <div className={`bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-400 ${compact ? "mb-4" : ""}`}>
@@ -457,7 +565,7 @@ function CopyTable({ suggestions, screens = [], compact = false }) {
             <tr key={i} className="border-b border-gray-100 last:border-0">
               {screens.length > 1 && (
                 <td className="px-4 py-3">
-                  <ScreenBadges screenNums={row.screens} screens={screens} />
+                  <ScreenBadges screenNums={row.screens} screens={screens} onOpenScreen={onOpenScreen} />
                 </td>
               )}
               <td className="px-5 py-3">

@@ -1,10 +1,10 @@
-import { Eye } from "lucide-react";
+import { Eye, XCircle } from "lucide-react";
 import AgentCard from "./AgentCard.jsx";
 import { AGENTS } from "../lib/api.js";
 
 const NUMBER_WORDS = { 3: "Three", 4: "Four", 5: "Five" };
 
-export default function AgentProcessing({ agentStatuses, reviewReady, error, onViewResults, hasPrd = true, agentList }) {
+export default function AgentProcessing({ agentStatuses, reviewReady, error, onViewResults, hasPrd = true, agentList, onCancel }) {
   // If an explicit agentList is provided (generate mode), use it directly.
   // Otherwise, fall back to the review AGENTS list with PRD filtering.
   const visibleAgents = agentList
@@ -19,6 +19,7 @@ export default function AgentProcessing({ agentStatuses, reviewReady, error, onV
 
   const isGenerateMode = !!agentList;
   const countWord = NUMBER_WORDS[visibleAgents.length] || visibleAgents.length;
+  const inFlight = !reviewReady && !error;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -68,6 +69,20 @@ export default function AgentProcessing({ agentStatuses, reviewReady, error, onV
           >
             <Eye size={16} /> {isGenerateMode ? "View Results" : "View Review"}
           </button>
+        </div>
+      )}
+
+      {inFlight && onCancel && (
+        <div className="mt-8 text-center">
+          <button
+            onClick={onCancel}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <XCircle size={14} /> Cancel {isGenerateMode ? "generation" : "review"}
+          </button>
+          <p className="text-[11px] text-gray-400 mt-1">
+            Completed agents have already used their tokens.
+          </p>
         </div>
       )}
     </div>
