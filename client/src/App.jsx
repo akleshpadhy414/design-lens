@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Sparkles, Bot, AlertTriangle, Search, Wand2, Settings as SettingsIcon, LogOut } from "lucide-react";
 import StepIndicator from "./components/StepIndicator.jsx";
 import PrdUpload from "./components/PrdUpload.jsx";
@@ -52,6 +52,7 @@ function SignedInApp({ user }) {
   const [error, setError] = useState(null);
   const [backendStatus, setBackendStatus] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const abortRef = useRef(null);
 
   useAutoLoadKeys();
   const keys = useKeysStore();
@@ -104,13 +105,13 @@ function SignedInApp({ user }) {
       url: d.url,
     }));
 
-    startReview({
+    abortRef.current = startReview({
       prdText, screens, customPrompt,
       provider: active.provider,
       onAgentStart: (a) => setAgentStatuses((p) => ({ ...p, [a]: "running" })),
       onAgentComplete: (a) => setAgentStatuses((p) => ({ ...p, [a]: "complete" })),
-      onComplete: (result) => { setReviewResult(result); setReviewReady(true); },
-      onError: (m) => setError(m),
+      onComplete: (result) => { setReviewResult(result); setReviewReady(true); abortRef.current = null; },
+      onError: (m) => { setError(m); abortRef.current = null; },
     });
   }, [prdText, designs, customPrompt, canRun, active.provider]);
 
@@ -125,15 +126,28 @@ function SignedInApp({ user }) {
     setReviewReady(false);
     setError(null);
 
-    startGenerate({
+    abortRef.current = startGenerate({
       prdText,
       provider: active.provider,
       onAgentStart: (a) => setAgentStatuses((p) => ({ ...p, [a]: "running" })),
       onAgentComplete: (a) => setAgentStatuses((p) => ({ ...p, [a]: "complete" })),
-      onComplete: (result) => { setGenerateResult(result); setReviewReady(true); },
-      onError: (m) => setError(m),
+      onComplete: (result) => { setGenerateResult(result); setReviewReady(true); abortRef.current = null; },
+      onError: (m) => { setError(m); abortRef.current = null; },
     });
   }, [prdText, canRun, active.provider]);
+
+  const handleCancel = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current();
+      abortRef.current = null;
+    }
+    // Return to the appropriate input step (1 for review = designs,
+    // 0 for generate = PRD).
+    setStep(mode === "review" ? 1 : 0);
+    setAgentStatuses({});
+    setReviewReady(false);
+    setError(null);
+  }, [mode]);
 
   const handleStartNew = useCallback(() => {
     setStep(0); setPrdText(""); setDesigns([]); setCustomPrompt("");
@@ -263,6 +277,7 @@ function SignedInApp({ user }) {
                 reviewReady={reviewReady}
                 error={error}
                 onViewResults={() => setStep(3)}
+                onCancel={handleCancel}
                 hasPrd={prdText.trim().length > 0}
               />
             )}
@@ -283,6 +298,7 @@ function SignedInApp({ user }) {
                 reviewReady={reviewReady}
                 error={error}
                 onViewResults={() => setStep(2)}
+                onCancel={handleCancel}
                 agentList={GENERATE_AGENTS}
               />
             )}
