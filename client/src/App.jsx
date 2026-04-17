@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { Sparkles, Bot, AlertTriangle, Search, Wand2, Settings as SettingsIcon } from "lucide-react";
+import { Sparkles, Bot, AlertTriangle, Search, Wand2, Settings as SettingsIcon, LogOut } from "lucide-react";
 import StepIndicator from "./components/StepIndicator.jsx";
 import PrdUpload from "./components/PrdUpload.jsx";
 import DesignUpload from "./components/DesignUpload.jsx";
@@ -7,14 +7,40 @@ import AgentProcessing from "./components/AgentProcessing.jsx";
 import ReviewResults from "./components/ReviewResults.jsx";
 import GenerateResults from "./components/GenerateResults.jsx";
 import SettingsPanel from "./components/SettingsPanel.jsx";
+import LoginGate from "./components/LoginGate.jsx";
 import { startReview, startGenerate, checkHealth, GENERATE_AGENTS } from "./lib/api.js";
-import { useSettings, resolveActiveCredential } from "./lib/settings.js";
+import {
+  useKeysStore,
+  useAutoLoadKeys,
+  resolveActiveProvider,
+} from "./lib/settings.js";
+import { supabase, setSessionOnly } from "./lib/supabase.js";
 
 const REVIEW_STEPS = ["PRD (Optional)", "Add Designs", "AI Review", "Results"];
 const GENERATE_STEPS = ["Paste PRD", "AI Generation", "Results"];
 
 export default function App() {
-  const [mode, setMode] = useState("review"); // "review" | "generate"
+  const [session, setSession] = useState(null);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session || null);
+      setSessionReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s || null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  if (!sessionReady) return null;
+  if (!session) return <LoginGate />;
+  return <SignedInApp user={session.user} />;
+}
+
+function SignedInApp({ user }) {
+  const [mode, setMode] = useState("review");
   const [step, setStep] = useState(0);
   const [prdText, setPrdText] = useState("");
   const [designs, setDesigns] = useState([]);
@@ -25,40 +51,27 @@ export default function App() {
   const [reviewReady, setReviewReady] = useState(false);
   const [error, setError] = useState(null);
   const [backendStatus, setBackendStatus] = useState(null);
-  const [health, setHealth] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings] = useSettings();
 
-  // Check backend health on mount
+  useAutoLoadKeys();
+  const keys = useKeysStore();
+
   useEffect(() => {
     checkHealth().then((res) => {
-      if (res.status === "ok") {
-        setHealth(res);
-        setBackendStatus("ok");
-      } else {
-        setBackendStatus("offline");
-      }
+      setBackendStatus(res.status === "ok" ? "ok" : "offline");
     });
   }, []);
 
-  const activeCredential = useMemo(
-    () => resolveActiveCredential(settings, health),
-    [settings, health]
-  );
+  const active = useMemo(() => resolveActiveProvider(keys), [keys]);
+  const canRun = active.ok;
 
-  const canRun = activeCredential.ok;
-  const credPayload = activeCredential.ok
-    ? { provider: activeCredential.provider, apiKey: activeCredential.apiKey }
-    : null;
-
-  // Auto-open settings if we can't run
+  // Open settings whenever the user can't run (and we've finished loading).
   useEffect(() => {
-    if (backendStatus === "ok" && !canRun) setSettingsOpen(true);
-  }, [backendStatus, canRun]);
+    if (keys.loaded && !canRun) setSettingsOpen(true);
+  }, [keys.loaded, canRun]);
 
   const steps = mode === "review" ? REVIEW_STEPS : GENERATE_STEPS;
 
-  // Switch mode and reset
   const switchMode = useCallback((newMode) => {
     if (newMode === mode) return;
     setMode(newMode);
@@ -73,7 +86,6 @@ export default function App() {
     setError(null);
   }, [mode]);
 
-  // Run the AI review pipeline
   const runReview = useCallback(() => {
     if (!canRun) {
       setSettingsOpen(true);
@@ -93,27 +105,15 @@ export default function App() {
     }));
 
     startReview({
-      prdText,
-      screens,
-      customPrompt,
-      credentials: credPayload,
-      onAgentStart: (agentId) => {
-        setAgentStatuses((prev) => ({ ...prev, [agentId]: "running" }));
-      },
-      onAgentComplete: (agentId, _result) => {
-        setAgentStatuses((prev) => ({ ...prev, [agentId]: "complete" }));
-      },
-      onComplete: (result) => {
-        setReviewResult(result);
-        setReviewReady(true);
-      },
-      onError: (message) => {
-        setError(message);
-      },
+      prdText, screens, customPrompt,
+      provider: active.provider,
+      onAgentStart: (a) => setAgentStatuses((p) => ({ ...p, [a]: "running" })),
+      onAgentComplete: (a) => setAgentStatuses((p) => ({ ...p, [a]: "complete" })),
+      onComplete: (result) => { setReviewResult(result); setReviewReady(true); },
+      onError: (m) => setError(m),
     });
-  }, [prdText, designs, customPrompt, credPayload, canRun]);
+  }, [prdText, designs, customPrompt, canRun, active.provider]);
 
-  // Run the AI generate pipeline
   const runGenerate = useCallback(() => {
     if (!canRun) {
       setSettingsOpen(true);
@@ -127,39 +127,27 @@ export default function App() {
 
     startGenerate({
       prdText,
-      credentials: credPayload,
-      onAgentStart: (agentId) => {
-        setAgentStatuses((prev) => ({ ...prev, [agentId]: "running" }));
-      },
-      onAgentComplete: (agentId, _result) => {
-        setAgentStatuses((prev) => ({ ...prev, [agentId]: "complete" }));
-      },
-      onComplete: (result) => {
-        setGenerateResult(result);
-        setReviewReady(true);
-      },
-      onError: (message) => {
-        setError(message);
-      },
+      provider: active.provider,
+      onAgentStart: (a) => setAgentStatuses((p) => ({ ...p, [a]: "running" })),
+      onAgentComplete: (a) => setAgentStatuses((p) => ({ ...p, [a]: "complete" })),
+      onComplete: (result) => { setGenerateResult(result); setReviewReady(true); },
+      onError: (m) => setError(m),
     });
-  }, [prdText, credPayload, canRun]);
+  }, [prdText, canRun, active.provider]);
 
-  // Reset everything
   const handleStartNew = useCallback(() => {
-    setStep(0);
-    setPrdText("");
-    setDesigns([]);
-    setCustomPrompt("");
-    setAgentStatuses({});
-    setReviewResult(null);
-    setGenerateResult(null);
-    setReviewReady(false);
-    setError(null);
+    setStep(0); setPrdText(""); setDesigns([]); setCustomPrompt("");
+    setAgentStatuses({}); setReviewResult(null); setGenerateResult(null);
+    setReviewReady(false); setError(null);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setSessionOnly(false);
   }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -172,7 +160,6 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* Mode Toggle */}
             <div className="flex bg-gray-100 rounded-lg p-0.5">
               <button
                 onClick={() => switchMode("review")}
@@ -202,23 +189,19 @@ export default function App() {
                 <span>Backend offline</span>
               </div>
             )}
-            {backendStatus === "ok" && !canRun && (
+            {keys.loaded && !canRun && (
               <button
                 onClick={() => setSettingsOpen(true)}
                 className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-md border border-amber-200"
               >
                 <AlertTriangle size={12} />
-                <span>
-                  {activeCredential.reason === "pick-provider"
-                    ? "Pick a provider"
-                    : "Add an API key"}
-                </span>
+                <span>{active.reason === "pick-provider" ? "Pick a provider" : "Add an API key"}</span>
               </button>
             )}
             {canRun && (
               <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-200">
                 <span className="font-medium">
-                  {activeCredential.provider === "anthropic" ? "Claude" : "GPT-4o"}
+                  {active.provider === "anthropic" ? "Claude" : "GPT-4o"}
                 </span>
               </div>
             )}
@@ -229,7 +212,7 @@ export default function App() {
             >
               <SettingsIcon size={16} />
             </button>
-            <div className="flex items-center gap-2 text-xs text-gray-400">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400">
               <Bot size={14} />
               <span>
                 {mode === "generate"
@@ -237,30 +220,32 @@ export default function App() {
                   : `${prdText.trim().length > 0 ? "5" : "4"} agents ready`}
               </span>
             </div>
+            <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
+              <span className="text-xs text-gray-500 max-w-[160px] truncate" title={user.email}>
+                {user.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                aria-label="Log out"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <SettingsPanel
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        envKeys={health?.env}
-      />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <div className="max-w-6xl mx-auto px-6 py-8">
         <StepIndicator steps={steps} current={step} />
 
-        {/* ═══════════════════ REVIEW MODE ═══════════════════ */}
         {mode === "review" && (
           <>
             {step === 0 && (
-              <PrdUpload
-                prdText={prdText}
-                setPrdText={setPrdText}
-                onNext={() => setStep(1)}
-              />
+              <PrdUpload prdText={prdText} setPrdText={setPrdText} onNext={() => setStep(1)} />
             )}
-
             {step === 1 && (
               <DesignUpload
                 designs={designs}
@@ -272,7 +257,6 @@ export default function App() {
                 prdText={prdText}
               />
             )}
-
             {step === 2 && (
               <AgentProcessing
                 agentStatuses={agentStatuses}
@@ -282,24 +266,17 @@ export default function App() {
                 hasPrd={prdText.trim().length > 0}
               />
             )}
-
             {step === 3 && (
               <ReviewResults review={reviewResult} onStartNew={handleStartNew} screens={designs} />
             )}
           </>
         )}
 
-        {/* ═══════════════════ GENERATE MODE ═══════════════════ */}
         {mode === "generate" && (
           <>
             {step === 0 && (
-              <GeneratePrdStep
-                prdText={prdText}
-                setPrdText={setPrdText}
-                onGenerate={runGenerate}
-              />
+              <GeneratePrdStep prdText={prdText} setPrdText={setPrdText} onGenerate={runGenerate} />
             )}
-
             {step === 1 && (
               <AgentProcessing
                 agentStatuses={agentStatuses}
@@ -309,7 +286,6 @@ export default function App() {
                 agentList={GENERATE_AGENTS}
               />
             )}
-
             {step === 2 && (
               <GenerateResults result={generateResult} onStartNew={handleStartNew} />
             )}
@@ -320,16 +296,13 @@ export default function App() {
   );
 }
 
-// ─── Inline component for Generate PRD step ───
 function GeneratePrdStep({ prdText, setPrdText, onGenerate }) {
   const canProceed = prdText.trim().length > 20;
 
   return (
     <div className="max-w-3xl">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Describe what to build
-        </h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Describe what to build</h2>
         <p className="text-gray-500">
           Paste your PRD, feature spec, or requirements. The agents will generate
           a component tree, fill in all UI copy, and render a visual HTML reference.

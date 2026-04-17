@@ -11,5 +11,19 @@ services:
         value: production
       - key: NODE_VERSION
         value: 20
+      # Supabase — server reads the first three; Vite bakes the VITE_* pair
+      # into the client bundle at build time.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MASTER_KEY
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
     healthCheckPath: /api/health
     autoDeploy: true

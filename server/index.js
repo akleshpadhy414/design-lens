@@ -11,12 +11,25 @@ import { runChecklistGen } from "./agents/checklistGen.js";
 import { runLayoutScaffolder } from "./agents/layoutScaffolder.js";
 import { runCopyWriter } from "./agents/copyWriter.js";
 import { runReferenceRenderer } from "./agents/referenceRenderer.js";
-import { resolveCredentials, DEFAULT_MODELS } from "./lib/provider.js";
-
-dotenv.config();
+import { DEFAULT_MODELS } from "./lib/provider.js";
+import { requireUser } from "./lib/auth.js";
+import { getKey, listKeysMeta } from "./lib/keystore.js";
+import settingsRouter from "./routes/settings.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Load .env from the repo root so server and Vite share one file.
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
 const isProduction = process.env.NODE_ENV === "production";
+
+// Fail fast if required env is missing — better than a half-broken runtime.
+const REQUIRED_ENV = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "MASTER_KEY"];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`FATAL: ${key} env var is required.`);
+    process.exit(1);
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,10 +37,10 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json({ limit: "200mb" }));
 
-// Baseline security headers. We skip strict CSP because Generate mode renders
-// model-produced HTML (with Tailwind CDN) inside a sandboxed srcdoc iframe,
-// which inherits the parent CSP — a strict policy would break the preview.
-// Sandbox attributes on the iframe still provide isolation.
+// Baseline security headers.
+// NOTE: `req.body` must never be logged — it contains user-supplied content
+// and historically transported API keys. Any future request-logging
+// middleware must redact body fields.
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -35,24 +48,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check — reports which providers have a server-side env key, so the
-// client can know whether the user needs to supply their own via Settings.
+// Health check — public, no auth required.
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
-    env: {
-      openai: !!process.env.OPENAI_API_KEY,
-      anthropic: !!process.env.ANTHROPIC_API_KEY,
-    },
+    auth: "supabase",
     defaultModels: DEFAULT_MODELS,
   });
 });
 
-// Resolve provider+key from the request, or fail with an SSE error frame.
-function credentialsFromRequest(req) {
-  const { provider, apiKey } = req.body || {};
-  return resolveCredentials({ requestProvider: provider, requestKey: apiKey });
-}
+// Settings routes (all require auth).
+app.use("/api/settings", settingsRouter);
 
 function setupSSE(res) {
   res.setHeader("Content-Type", "text/event-stream");
@@ -64,9 +70,39 @@ function setupSSE(res) {
   };
 }
 
+/**
+ * Resolve the stored provider+key for the authenticated user. Picks the
+ * requested provider if supplied and that key is saved; otherwise picks
+ * whichever single provider the user has. Errors if neither is set or if
+ * both are set and no provider was chosen.
+ */
+async function resolveUserCredentials(userId, requestedProvider) {
+  const meta = await listKeysMeta(userId);
+  const available = [];
+  if (meta.openai.set) available.push("openai");
+  if (meta.anthropic.set) available.push("anthropic");
+
+  if (available.length === 0) {
+    throw new Error("No API keys saved. Add one in Settings.");
+  }
+
+  let provider;
+  if (requestedProvider && available.includes(requestedProvider)) {
+    provider = requestedProvider;
+  } else if (available.length === 1) {
+    provider = available[0];
+  } else {
+    throw new Error("Multiple keys saved — pick a provider in Settings.");
+  }
+
+  const apiKey = await getKey(userId, provider);
+  if (!apiKey) throw new Error(`Stored ${provider} key could not be read`);
+  return { provider, apiKey };
+}
+
 // Main review endpoint using Server-Sent Events
-app.post("/api/review", async (req, res) => {
-  const { prdText, screens, images: legacyImages, customPrompt = "" } = req.body;
+app.post("/api/review", requireUser, async (req, res) => {
+  const { prdText, screens, images: legacyImages, customPrompt = "", provider } = req.body;
 
   const resolvedScreens = screens
     ? screens
@@ -78,7 +114,7 @@ app.post("/api/review", async (req, res) => {
 
   let credentials;
   try {
-    credentials = credentialsFromRequest(req);
+    credentials = await resolveUserCredentials(req.user.id, provider);
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
@@ -144,8 +180,8 @@ app.post("/api/review", async (req, res) => {
 });
 
 // Generate endpoint — PRD to UI spec via SSE
-app.post("/api/generate", async (req, res) => {
-  const { prdText } = req.body;
+app.post("/api/generate", requireUser, async (req, res) => {
+  const { prdText, provider } = req.body;
 
   if (!prdText || prdText.trim().length === 0) {
     return res.status(400).json({ error: "PRD text is required for generation" });
@@ -153,7 +189,7 @@ app.post("/api/generate", async (req, res) => {
 
   let credentials;
   try {
-    credentials = credentialsFromRequest(req);
+    credentials = await resolveUserCredentials(req.user.id, provider);
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
@@ -192,19 +228,12 @@ app.post("/api/generate", async (req, res) => {
 if (isProduction) {
   const clientDist = path.resolve(__dirname, "../client/dist");
   app.use(express.static(clientDist));
-  // SPA fallback — any non-API path returns index.html so client routing works.
   app.get(/^\/(?!api\/).*/, (req, res) => {
     res.sendFile(path.join(clientDist, "index.html"));
   });
 }
 
 app.listen(PORT, () => {
-  const envProviders = [
-    process.env.OPENAI_API_KEY && "OpenAI",
-    process.env.ANTHROPIC_API_KEY && "Anthropic",
-  ].filter(Boolean);
   console.log(`\n  DesignLens server running on port ${PORT} (${isProduction ? "production" : "dev"})`);
-  console.log(
-    `  Env API keys: ${envProviders.length ? envProviders.join(", ") : "none (users must supply via UI)"}\n`
-  );
+  console.log(`  Auth: Supabase  |  Key storage: server-side (AES-256-GCM)\n`);
 });

@@ -106,37 +106,3 @@ export async function callModel({
   return extractJson(text);
 }
 
-/**
- * Resolve which provider and key to use for a request.
- * Precedence: explicit request provider+key → whichever single env key is set.
- * Throws if nothing usable is available.
- */
-export function resolveCredentials({ requestProvider, requestKey, env = process.env }) {
-  if (requestProvider && requestKey) {
-    const p = requestProvider.toLowerCase();
-    if (p !== "openai" && p !== "anthropic") {
-      throw new Error(`Unknown provider: ${requestProvider}`);
-    }
-    return { provider: p, apiKey: requestKey };
-  }
-
-  const hasOpenAI = !!env.OPENAI_API_KEY;
-  const hasAnthropic = !!env.ANTHROPIC_API_KEY;
-
-  if (requestProvider) {
-    const p = requestProvider.toLowerCase();
-    if (p === "openai" && hasOpenAI) return { provider: "openai", apiKey: env.OPENAI_API_KEY };
-    if (p === "anthropic" && hasAnthropic)
-      return { provider: "anthropic", apiKey: env.ANTHROPIC_API_KEY };
-    throw new Error(`No API key available for ${p}. Add one in Settings.`);
-  }
-
-  if (hasOpenAI && hasAnthropic) {
-    throw new Error(
-      "Both provider keys are configured server-side but no provider was selected. Choose one in Settings."
-    );
-  }
-  if (hasOpenAI) return { provider: "openai", apiKey: env.OPENAI_API_KEY };
-  if (hasAnthropic) return { provider: "anthropic", apiKey: env.ANTHROPIC_API_KEY };
-  throw new Error("No API key configured. Add OpenAI or Anthropic key in Settings.");
-}

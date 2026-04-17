@@ -1,13 +1,26 @@
 import { useEffect, useState } from "react";
-import { X, Eye, EyeOff, Trash2, Shield } from "lucide-react";
-import { useSettings, clearKeys } from "../lib/settings.js";
+import { X, Eye, EyeOff, Trash2, Shield, Check, Loader2 } from "lucide-react";
+import {
+  useKeysStore,
+  refreshKeysMeta,
+  saveKey,
+  removeKey,
+  setPreferredProvider,
+} from "../lib/settings.js";
 
-export default function SettingsPanel({ open, onClose, envKeys }) {
-  const [settings, update] = useSettings();
+export default function SettingsPanel({ open, onClose }) {
+  const snap = useKeysStore();
+  const [openAIInput, setOpenAIInput] = useState("");
+  const [anthropicInput, setAnthropicInput] = useState("");
   const [showOpenAI, setShowOpenAI] = useState(false);
   const [showAnthropic, setShowAnthropic] = useState(false);
+  const [saving, setSaving] = useState(null); // "openai" | "anthropic" | null
+  const [actionError, setActionError] = useState(null);
 
-  // Close on Esc
+  useEffect(() => {
+    if (open) refreshKeysMeta();
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
@@ -19,9 +32,35 @@ export default function SettingsPanel({ open, onClose, envKeys }) {
 
   if (!open) return null;
 
-  const haveOpenAI = !!settings.openaiKey || envKeys?.openai;
-  const haveAnthropic = !!settings.anthropicKey || envKeys?.anthropic;
-  const bothAvailable = haveOpenAI && haveAnthropic;
+  const bothSet = snap.meta.openai.set && snap.meta.anthropic.set;
+
+  async function onSave(provider, value, clear) {
+    const trimmed = (value || "").trim();
+    if (trimmed.length < 10) {
+      setActionError("That key looks too short to be valid.");
+      return;
+    }
+    setSaving(provider);
+    setActionError(null);
+    try {
+      await saveKey(provider, trimmed);
+      clear();
+    } catch (err) {
+      setActionError(err.message || "Failed to save key");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function onDelete(provider) {
+    if (!confirm(`Remove the saved ${provider === "openai" ? "OpenAI" : "Anthropic"} key?`)) return;
+    setActionError(null);
+    try {
+      await removeKey(provider);
+    } catch (err) {
+      setActionError(err.message || "Failed to delete key");
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -44,84 +83,74 @@ export default function SettingsPanel({ open, onClose, envKeys }) {
         </div>
 
         <div className="p-5 space-y-6">
-          {/* Privacy note */}
           <div className="flex gap-2 items-start text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
             <Shield size={14} className="mt-0.5 shrink-0 text-gray-500" />
             <span>
-              Keys are stored only in <strong>this browser's local storage</strong> and
-              sent with each request to DesignLens' own backend. They are not logged or
-              persisted server-side.
+              Keys are encrypted with AES-256-GCM and stored server-side against your
+              account. They're never returned to the browser and only decrypted in
+              memory for each request.
             </span>
           </div>
 
-          {/* OpenAI */}
-          <KeyField
+          <KeyRow
             label="OpenAI API key"
             placeholder="sk-..."
-            hint={
-              envKeys?.openai && !settings.openaiKey
-                ? "Using the server's configured key. Override by entering your own."
-                : "Get one at platform.openai.com/api-keys"
-            }
-            value={settings.openaiKey}
-            onChange={(v) => update({ openaiKey: v.trim() })}
+            meta={snap.meta.openai}
+            inputValue={openAIInput}
+            onInputChange={setOpenAIInput}
             show={showOpenAI}
             onToggleShow={() => setShowOpenAI((s) => !s)}
+            saving={saving === "openai"}
+            onSave={() => onSave("openai", openAIInput, () => setOpenAIInput(""))}
+            onDelete={() => onDelete("openai")}
+            hintUrl="platform.openai.com/api-keys"
           />
 
-          {/* Anthropic */}
-          <KeyField
+          <KeyRow
             label="Anthropic API key"
             placeholder="sk-ant-..."
-            hint={
-              envKeys?.anthropic && !settings.anthropicKey
-                ? "Using the server's configured key. Override by entering your own."
-                : "Get one at console.anthropic.com/settings/keys"
-            }
-            value={settings.anthropicKey}
-            onChange={(v) => update({ anthropicKey: v.trim() })}
+            meta={snap.meta.anthropic}
+            inputValue={anthropicInput}
+            onInputChange={setAnthropicInput}
             show={showAnthropic}
             onToggleShow={() => setShowAnthropic((s) => !s)}
+            saving={saving === "anthropic"}
+            onSave={() => onSave("anthropic", anthropicInput, () => setAnthropicInput(""))}
+            onDelete={() => onDelete("anthropic")}
+            hintUrl="console.anthropic.com/settings/keys"
           />
 
-          {/* Provider selector (only when both are available) */}
-          {bothAvailable && (
+          {bothSet && (
             <div>
               <label className="block text-sm font-medium text-gray-800 mb-2">
                 Active model provider
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <ProviderOption
-                  selected={settings.preferredProvider === "openai"}
-                  onClick={() => update({ preferredProvider: "openai" })}
+                  selected={snap.preferredProvider === "openai"}
+                  onClick={() => setPreferredProvider("openai")}
                   title="OpenAI"
                   subtitle="gpt-4o"
                 />
                 <ProviderOption
-                  selected={settings.preferredProvider === "anthropic"}
-                  onClick={() => update({ preferredProvider: "anthropic" })}
+                  selected={snap.preferredProvider === "anthropic"}
+                  onClick={() => setPreferredProvider("anthropic")}
                   title="Anthropic"
                   subtitle="claude-sonnet-4-6"
                 />
               </div>
-              {!settings.preferredProvider && (
+              {!snap.preferredProvider && (
                 <p className="text-xs text-amber-600 mt-2">
-                  Both keys available — pick one to continue.
+                  Both keys saved — pick one to continue.
                 </p>
               )}
             </div>
           )}
 
-          {/* Clear */}
-          {(settings.openaiKey || settings.anthropicKey) && (
-            <button
-              onClick={() => {
-                if (confirm("Remove all saved API keys from this browser?")) clearKeys();
-              }}
-              className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700"
-            >
-              <Trash2 size={12} /> Clear saved keys
-            </button>
+          {actionError && (
+            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md p-2">
+              {actionError}
+            </div>
           )}
         </div>
 
@@ -138,31 +167,65 @@ export default function SettingsPanel({ open, onClose, envKeys }) {
   );
 }
 
-function KeyField({ label, placeholder, hint, value, onChange, show, onToggleShow }) {
+function KeyRow({
+  label, placeholder, meta, inputValue, onInputChange, show, onToggleShow,
+  saving, onSave, onDelete, hintUrl,
+}) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-800 mb-1.5">{label}</label>
-      <div className="relative">
-        <input
-          type={show ? "text" : "password"}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          autoComplete="off"
-          spellCheck={false}
-          className="w-full px-3 py-2 pr-10 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm font-mono"
-        />
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="block text-sm font-medium text-gray-800">{label}</label>
+        {meta.set && (
+          <span className="inline-flex items-center gap-1 text-xs text-green-700">
+            <Check size={12} /> saved: sk-…{meta.last4}
+          </span>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <input
+            type={show ? "text" : "password"}
+            value={inputValue}
+            onChange={(e) => onInputChange(e.target.value)}
+            placeholder={meta.set ? "Enter new key to replace" : placeholder}
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full px-3 py-2 pr-10 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm font-mono"
+          />
+          <button
+            type="button"
+            onClick={onToggleShow}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700"
+            aria-label={show ? "Hide" : "Show"}
+            tabIndex={-1}
+          >
+            {show ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </div>
         <button
           type="button"
-          onClick={onToggleShow}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-700"
-          aria-label={show ? "Hide" : "Show"}
-          tabIndex={-1}
+          onClick={onSave}
+          disabled={saving || inputValue.trim().length < 10}
+          className={`px-3 py-2 rounded-lg text-sm font-medium ${
+            saving || inputValue.trim().length < 10
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-blue-600 text-white hover:bg-blue-700"
+          }`}
         >
-          {show ? <EyeOff size={14} /> : <Eye size={14} />}
+          {saving ? <Loader2 size={14} className="animate-spin" /> : "Save"}
         </button>
+        {meta.set && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="px-2.5 py-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+            aria-label="Remove key"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      <p className="text-xs text-gray-400 mt-1">Get one at {hintUrl}</p>
     </div>
   );
 }
