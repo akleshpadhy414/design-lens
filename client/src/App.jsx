@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { Sparkles, Bot, AlertTriangle, Search, Wand2, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { Sparkles, Bot, AlertTriangle, Search, Wand2, Settings as SettingsIcon, LogOut, Plus } from "lucide-react";
 import StepIndicator from "./components/StepIndicator.jsx";
 import PrdUpload from "./components/PrdUpload.jsx";
 import DesignUpload from "./components/DesignUpload.jsx";
@@ -8,7 +8,7 @@ import ReviewResults from "./components/ReviewResults.jsx";
 import GenerateResults from "./components/GenerateResults.jsx";
 import SettingsPanel from "./components/SettingsPanel.jsx";
 import LoginGate from "./components/LoginGate.jsx";
-import { startReview, startGenerate, checkHealth, GENERATE_AGENTS } from "./lib/api.js";
+import { startReview, startGenerate, checkHealth, GENERATE_AGENTS, visibleAgentsFor } from "./lib/api.js";
 import {
   useKeysStore,
   useAutoLoadKeys,
@@ -45,6 +45,7 @@ function SignedInApp({ user }) {
   const [prdText, setPrdText] = useState("");
   const [designs, setDesigns] = useState([]);
   const [customPrompt, setCustomPrompt] = useState("");
+  const [focus, setFocus] = useState("full"); // "full" | "copy" | "visual"
   const [agentStatuses, setAgentStatuses] = useState({});
   const [reviewResult, setReviewResult] = useState(null);
   const [generateResult, setGenerateResult] = useState(null);
@@ -106,14 +107,14 @@ function SignedInApp({ user }) {
     }));
 
     abortRef.current = startReview({
-      prdText, screens, customPrompt,
+      prdText, screens, customPrompt, focus,
       provider: active.provider,
       onAgentStart: (a) => setAgentStatuses((p) => ({ ...p, [a]: "running" })),
       onAgentComplete: (a) => setAgentStatuses((p) => ({ ...p, [a]: "complete" })),
       onComplete: (result) => { setReviewResult(result); setReviewReady(true); abortRef.current = null; },
       onError: (m) => { setError(m); abortRef.current = null; },
     });
-  }, [prdText, designs, customPrompt, canRun, active.provider]);
+  }, [prdText, designs, customPrompt, focus, canRun, active.provider]);
 
   const runGenerate = useCallback(() => {
     if (!canRun) {
@@ -150,10 +151,18 @@ function SignedInApp({ user }) {
   }, [mode]);
 
   const handleStartNew = useCallback(() => {
+    // Abort any in-flight SSE so leftover events can't race into fresh state.
+    if (abortRef.current) { abortRef.current(); abortRef.current = null; }
     setStep(0); setPrdText(""); setDesigns([]); setCustomPrompt("");
+    setFocus("full");
     setAgentStatuses({}); setReviewResult(null); setGenerateResult(null);
     setReviewReady(false); setError(null);
   }, []);
+
+  const visibleReviewAgents = useMemo(
+    () => visibleAgentsFor(focus, prdText.trim().length > 0),
+    [focus, prdText]
+  );
 
   const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -219,6 +228,15 @@ function SignedInApp({ user }) {
                 </span>
               </div>
             )}
+            {step > 0 && (
+              <button
+                onClick={handleStartNew}
+                className="flex items-center gap-1.5 text-xs text-gray-700 bg-white hover:bg-gray-50 px-2 py-1 rounded-md border border-gray-200"
+                title="Start a new review"
+              >
+                <Plus size={12} /> New
+              </button>
+            )}
             <button
               onClick={() => setSettingsOpen(true)}
               className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
@@ -269,6 +287,8 @@ function SignedInApp({ user }) {
                 customPrompt={customPrompt}
                 setCustomPrompt={setCustomPrompt}
                 prdText={prdText}
+                focus={focus}
+                setFocus={setFocus}
               />
             )}
             {step === 2 && (
@@ -279,6 +299,7 @@ function SignedInApp({ user }) {
                 onViewResults={() => setStep(3)}
                 onCancel={handleCancel}
                 hasPrd={prdText.trim().length > 0}
+                agentList={visibleReviewAgents}
               />
             )}
             {step === 3 && (
