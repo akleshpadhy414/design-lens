@@ -121,17 +121,33 @@ async function streamSSE(path, body, handlers, controller) {
 }
 
 export function startReview({
-  prdText, screens, customPrompt = "", provider,
+  prdText, screens, customPrompt = "", provider, focus = "full",
   onAgentStart, onAgentComplete, onComplete, onError,
 }) {
   const controller = new AbortController();
   streamSSE(
     "/api/review",
-    { prdText, screens, customPrompt, provider },
+    { prdText, screens, customPrompt, provider, focus },
     { onAgentStart, onAgentComplete, onComplete, onError, completionEvent: "review_complete" },
     controller
   );
   return () => controller.abort();
+}
+
+/**
+ * Filter the AGENTS list based on a review focus mode and whether a PRD is present.
+ * Mirrors the server's skip logic so AgentProcessing shows exactly the agents
+ * that will actually run.
+ */
+export function visibleAgentsFor(focus, hasPrd) {
+  const includeVisual = focus === "full" || focus === "visual";
+  const includeCopy = focus === "full" || focus === "copy";
+  return AGENTS.filter((a) => {
+    if (a.id === "prd-parser") return hasPrd;
+    if (a.id === "visual-hierarchy" || a.id === "ux-compliance") return includeVisual;
+    if (a.id === "copy-reviewer") return includeCopy;
+    return true; // checklist-gen always runs
+  });
 }
 
 export function startGenerate({

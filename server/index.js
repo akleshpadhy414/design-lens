@@ -102,7 +102,9 @@ async function resolveUserCredentials(userId, requestedProvider) {
 
 // Main review endpoint using Server-Sent Events
 app.post("/api/review", requireUser, async (req, res) => {
-  const { prdText, screens, images: legacyImages, customPrompt = "", provider } = req.body;
+  const { prdText, screens, images: legacyImages, customPrompt = "", provider, focus = "full" } = req.body;
+  const includeVisual = focus === "full" || focus === "visual";
+  const includeCopy = focus === "full" || focus === "copy";
 
   const resolvedScreens = screens
     ? screens
@@ -134,47 +136,52 @@ app.post("/api/review", requireUser, async (req, res) => {
       sendEvent("agent_complete", { agent: "prd-parser", result: prdContext });
     }
 
-    // Visual Hierarchy and Copy Reviewer are independent — run them in
-    // parallel. UX Compliance depends on Visual Hierarchy's findings, so it
-    // still runs after VH completes.
-    sendEvent("agent_start", { agent: "visual-hierarchy" });
-    sendEvent("agent_start", { agent: "copy-reviewer" });
+    // Visual and copy tracks are independent — run them in parallel. Each
+    // track is skipped entirely when the user picks a focus mode.
+    const visualPromise = includeVisual
+      ? (() => {
+          sendEvent("agent_start", { agent: "visual-hierarchy" });
+          const hp = runVisualHierarchy({
+            images, prdContext, screenManifest, customPrompt, credentials,
+          }).then((result) => {
+            sendEvent("agent_complete", { agent: "visual-hierarchy", result });
+            return result;
+          });
+          // UX Compliance depends on hierarchy; start as soon as VH is done.
+          return hp.then(async (hierarchyResult) => {
+            sendEvent("agent_start", { agent: "ux-compliance" });
+            const uxResult = await runUxCompliance({
+              images,
+              prdContext,
+              hierarchyFindings: hierarchyResult.findings || [],
+              screenManifest,
+              customPrompt,
+              credentials,
+            });
+            sendEvent("agent_complete", { agent: "ux-compliance", result: uxResult });
+            return { hierarchyResult, uxResult };
+          });
+        })()
+      : Promise.resolve({
+          hierarchyResult: { findings: [] },
+          uxResult: { findings: [] },
+        });
 
-    const hierarchyPromise = runVisualHierarchy({
-      images, prdContext, screenManifest, customPrompt, credentials,
-    }).then((result) => {
-      sendEvent("agent_complete", { agent: "visual-hierarchy", result });
-      return result;
-    });
+    const copyPromise = includeCopy
+      ? (() => {
+          sendEvent("agent_start", { agent: "copy-reviewer" });
+          return runCopyReviewer({
+            images, prdContext, screenManifest, customPrompt, credentials,
+          }).then((result) => {
+            sendEvent("agent_complete", { agent: "copy-reviewer", result });
+            return result;
+          });
+        })()
+      : Promise.resolve({ suggestions: [] });
 
-    const copyPromise = runCopyReviewer({
-      images, prdContext, screenManifest, customPrompt, credentials,
-    }).then((result) => {
-      sendEvent("agent_complete", { agent: "copy-reviewer", result });
-      return result;
-    });
-
-    // UX Compliance depends on hierarchy; start it as soon as hierarchy is
-    // done, without waiting for Copy Reviewer.
-    const uxPromise = hierarchyPromise.then((hierarchyResult) => {
-      sendEvent("agent_start", { agent: "ux-compliance" });
-      return runUxCompliance({
-        images,
-        prdContext,
-        hierarchyFindings: hierarchyResult.findings || [],
-        screenManifest,
-        customPrompt,
-        credentials,
-      }).then((result) => {
-        sendEvent("agent_complete", { agent: "ux-compliance", result });
-        return result;
-      });
-    });
-
-    const [hierarchyResult, copyResult, uxResult] = await Promise.all([
-      hierarchyPromise,
+    const [{ hierarchyResult, uxResult }, copyResult] = await Promise.all([
+      visualPromise,
       copyPromise,
-      uxPromise,
     ]);
     const hierarchyFindings = hierarchyResult.findings || [];
     const uxFindings = uxResult.findings || [];

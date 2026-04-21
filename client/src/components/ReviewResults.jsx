@@ -18,6 +18,8 @@ import SeverityBadge from "./SeverityBadge.jsx";
 import ChecklistItem from "./ChecklistItem.jsx";
 import ScreenLightbox, { useLightbox } from "./ScreenLightbox.jsx";
 import DownloadMenu from "./DownloadMenu.jsx";
+import PrintableReview from "./PrintableReview.jsx";
+import { Printer } from "lucide-react";
 
 const FLOW_TAG_COLORS = {
   "happy-path": "bg-emerald-100 text-emerald-700",
@@ -128,6 +130,13 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
 
   return (
     <div>
+      {/* Hidden print-only view; revealed via @media print */}
+      <div className="print-only print-full">
+        <PrintableReview review={review} screens={screens} />
+      </div>
+
+      {/* Everything below is hidden during print */}
+      <div className="no-print">
       {/* Screens rail — click to preview full-size */}
       {screens.length > 0 && (
         <div className="mb-6">
@@ -355,6 +364,13 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
           <Zap size={16} /> Start New Review
         </button>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50"
+            title="Print or save as PDF"
+          >
+            <Printer size={14} /> PDF
+          </button>
           <DownloadMenu review={review} screens={screens} />
           <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400">
             <Coffee size={14} />
@@ -369,6 +385,7 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
         onClose={lightbox.close}
         onChange={lightbox.setIndex}
       />
+      </div> {/* /no-print */}
     </div>
   );
 }

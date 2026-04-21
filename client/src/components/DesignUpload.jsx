@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Image, ChevronLeft, Zap, X, SlidersHorizontal } from "lucide-react";
+import { Image, ChevronLeft, Zap, X, SlidersHorizontal, Focus, Layout, Type } from "lucide-react";
 import { prepareImage } from "../lib/image.js";
 
 const FLOW_TAGS = [
@@ -11,7 +11,28 @@ const FLOW_TAGS = [
   { value: "settings", label: "Settings", color: "bg-purple-100 text-purple-700" },
 ];
 
-export default function DesignUpload({ designs, setDesigns, onBack, onRunReview, customPrompt, setCustomPrompt, prdText = "" }) {
+const FOCUS_OPTIONS = [
+  {
+    id: "full",
+    label: "Full review",
+    icon: Zap,
+    description: "Visual hierarchy, UX, and copy. 4–5 agents.",
+  },
+  {
+    id: "visual",
+    label: "Visual only",
+    icon: Layout,
+    description: "Skip copy. Faster + cheaper.",
+  },
+  {
+    id: "copy",
+    label: "Copy only",
+    icon: Type,
+    description: "Skip visual + UX. Best for copy passes.",
+  },
+];
+
+export default function DesignUpload({ designs, setDesigns, onBack, onRunReview, customPrompt, setCustomPrompt, prdText = "", focus = "full", setFocus }) {
   const canProceed = designs.length > 0;
 
   const handleDesignUpload = useCallback(async (e) => {
@@ -82,7 +103,7 @@ export default function DesignUpload({ designs, setDesigns, onBack, onRunReview,
             Drop screenshots here or click to browse
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            PNG, JPG, or WebP up to 10MB each
+            PNG, JPG, or WebP — large images are auto-downscaled before upload
           </p>
         </div>
         <input
@@ -152,8 +173,42 @@ export default function DesignUpload({ designs, setDesigns, onBack, onRunReview,
         </div>
       )}
 
+      {/* Focus mode */}
+      {setFocus && (
+        <div className="mt-8 rounded-xl border border-gray-200 bg-white p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Focus size={15} className="text-gray-400" />
+            <span className="text-sm font-medium text-gray-700">Review focus</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {FOCUS_OPTIONS.map((opt) => {
+              const selected = focus === opt.id;
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setFocus(opt.id)}
+                  className={`text-left p-3 rounded-lg border-2 transition-all ${
+                    selected
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-gray-900 mb-0.5">
+                    <Icon size={13} className={selected ? "text-blue-600" : "text-gray-400"} />
+                    {opt.label}
+                  </div>
+                  <div className="text-xs text-gray-500 leading-snug">{opt.description}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Custom Instructions */}
-      <div className="mt-8 rounded-xl border border-gray-200 bg-white p-5">
+      <div className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
         <div className="flex items-center gap-2 mb-3">
           <SlidersHorizontal size={15} className="text-gray-400" />
           <span className="text-sm font-medium text-gray-700">Review Instructions</span>
