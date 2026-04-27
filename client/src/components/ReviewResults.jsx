@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Search,
   Layout,
@@ -30,15 +30,35 @@ const FLOW_TAG_COLORS = {
 };
 
 export default function ReviewResults({ review, onStartNew, screens = [] }) {
-  const [activeTab, setActiveTab] = useState("hierarchy");
+  // Defensive: hooks must run unconditionally, so guard with || {}
+  // and bail out at the very end.
+  const r = review || {};
+  const { summary, hierarchy = [], usability = [], copySuggestions = [], checklist = [], focus = "full" } = r;
+
+  // Only show tabs that the user actually asked for. Focus mode is the
+  // primary signal; data presence is the fallback so older review payloads
+  // (without `focus`) still work.
+  const includeVisual = focus !== "copy" && (focus === "full" || focus === "visual" || hierarchy.length > 0 || usability.length > 0);
+  const includeCopy = focus !== "visual" && (focus === "full" || focus === "copy" || copySuggestions.length > 0);
+
+  const tabs = useMemo(() => [
+    includeVisual && { id: "hierarchy", label: "Visual Hierarchy", icon: Layout },
+    includeVisual && { id: "usability", label: "Usability & UX", icon: Compass },
+    includeCopy && { id: "copy", label: "Copy Suggestions", icon: Type },
+    { id: "checklist", label: "Checklist", icon: ClipboardCheck },
+  ].filter(Boolean), [includeVisual, includeCopy]);
+
+  const [activeTab, setActiveTab] = useState(tabs[0]?.id || "checklist");
   const [viewMode, setViewMode] = useState("all"); // "all" | "by-screen" | "by-flow"
   const lightbox = useLightbox();
 
   const openScreen = useCallback((i) => lightbox.openAt(i), [lightbox]);
 
-  if (!review) return null;
-
-  const { summary, hierarchy = [], usability = [], copySuggestions = [], checklist = [] } = review;
+  // If the focus mode shifts (e.g. mid-session new run), make sure the
+  // active tab is still in the visible set.
+  useEffect(() => {
+    if (!tabs.some((t) => t.id === activeTab)) setActiveTab(tabs[0]?.id || "checklist");
+  }, [tabs, activeTab]);
 
   const errorCount = checklist.filter((c) => c.status === "error").length;
   const warningCount = checklist.filter((c) => c.status === "warning").length;
@@ -47,13 +67,6 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
 
   const hasMultipleScreens = screens.length > 1;
   const hasFlowTags = screens.some((s) => s.flowTag);
-
-  const tabs = [
-    { id: "hierarchy", label: "Visual Hierarchy", icon: Layout },
-    { id: "usability", label: "Usability & UX", icon: Compass },
-    { id: "copy", label: "Copy Suggestions", icon: Type },
-    { id: "checklist", label: "Checklist", icon: ClipboardCheck },
-  ];
 
   // Get findings for current tab
   const currentFindings = activeTab === "hierarchy" ? hierarchy : activeTab === "usability" ? usability : [];
@@ -127,6 +140,8 @@ export default function ReviewResults({ review, onStartNew, screens = [] }) {
     });
     return grouped;
   }, [copySuggestions, screens, hasMultipleScreens]);
+
+  if (!review) return null;
 
   return (
     <div>

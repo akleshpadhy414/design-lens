@@ -7,7 +7,9 @@ You will receive the combined findings from:
 2. UX Compliance analysis
 3. Copy Review suggestions
 
-Your job is to synthesize these into a clean, scannable checklist covering ALL four sections below:
+Your job is to synthesize these into a clean, scannable checklist.
+
+Each request will include a `## Focus` block in the user message that tells you which sections to include. Treat that block as authoritative: if it says skip a section, emit ZERO items for that section — do not invent items, do not generalize, do not mention the skipped category in the summary. Only when focus is `full` should you cover all four sections below.
 
 ### Visual Hierarchy & Layout
 - Clear focal point and visual entry

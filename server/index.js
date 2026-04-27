@@ -189,7 +189,7 @@ app.post("/api/review", requireUser, async (req, res) => {
 
     sendEvent("agent_start", { agent: "checklist-gen" });
     const checklistResult = await runChecklistGen({
-      hierarchyFindings, uxFindings, copySuggestions, screenManifest, customPrompt, credentials,
+      hierarchyFindings, uxFindings, copySuggestions, screenManifest, customPrompt, credentials, focus,
     });
     sendEvent("agent_complete", { agent: "checklist-gen", result: checklistResult });
 
@@ -200,6 +200,7 @@ app.post("/api/review", requireUser, async (req, res) => {
       copySuggestions,
       checklist: checklistResult.checklist || [],
       prdContext,
+      focus, // client uses this to hide skipped sections in the results view
     };
 
     sendEvent("review_complete", { result: finalResult });
