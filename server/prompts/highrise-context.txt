@@ -751,3 +751,79 @@ Avoid fillers like 'Please note that…' or 'Kindly…'.
 
 - Figma Link
 - Example screenshots:
+
+---
+
+## Universal UX-writing heuristics (apply alongside the GHL rules above)
+
+These are the canonical product-copy rules from Apple HIG (Writing), Microsoft
+Writing Style Guide, Material Design (Writing), IBM Carbon (Content),
+Atlassian Design System (Writing for Atlassian), and Torrey Podmajersky's
+"Strategic Writing for UX." Use them whenever the GHL rules don't already
+cover a case, and as a tie-breaker when GHL is silent.
+
+### Buttons & confirmations — match the verb to the action
+
+A confirmation button should say what it does, not "Yes / No / OK / Cancel."
+Mirror the verb the user clicked to get to the dialog.
+
+| Don't                                          | Do                                              |
+| ---------------------------------------------- | ----------------------------------------------- |
+| `[Yes, delete]` `[Cancel]`                     | `[Delete]` `[Cancel]`                           |
+| `[Yes, I'm sure]` `[No]`                       | `[Delete account]` `[Keep account]`             |
+| `[Confirm]` `[Cancel]` (in destructive dialog) | `[Pay $49]` `[Cancel]`                          |
+| `[OK]` (in error dialog)                       | `[Try again]` or `[Got it]` if dismissive only  |
+
+Rules:
+- **Verb on the destructive button**, never "Yes." If the action is "Delete account," the button reads "Delete account" — not "Yes, delete."
+- **One verb is enough** when context is clear ("Delete" not "Yes, delete").
+- **Dismiss buttons** in destructive dialogs say "Cancel" (the user is cancelling the destructive flow, not the app).
+- **Affirmative-prefix antipattern** (`"Yes, X"`, `"OK, X"`, `"Sure, X"`) is forbidden — flag every instance.
+- **Dialog title states the question or action**, not "Are you sure?". Examples:
+  - ❌ "Are you sure you want to delete this contact?" → `[Yes, delete]` `[Cancel]`
+  - ✅ "Delete this contact?" → `[Delete]` `[Cancel]`
+
+### Errors, warnings, and dialog body copy — strip the exposition
+
+State the **change** or **consequence** first, then the user's options. Don't
+narrate timestamps the user already knows or chain clauses with em-dashes.
+
+Common antipatterns:
+
+- **Restating the user's recent action.** "After you opened it at 02:15 PM…" — the user knows when they opened it.
+- **Surfacing internal timestamps.** Times of day are rarely useful unless the user can act on them (e.g., a deadline). Prefer relative time ("3 minutes ago") and only when it adds meaning.
+- **Passive voice in warnings.** "The file was last modified" → "Someone else changed this file."
+- **Stacked clauses with em-dashes.** Break into two sentences or use a list.
+- **Leading with metadata.** Lead with what changed and what the user can do — not the timestamp or the system's internal state.
+
+| Don't (verbose, narrative)                                                                                                    | Do (concise, actionable)                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| "This file was last modified at 02:28 PM — after you opened it at 02:15 PM. Saving now will overwrite those external changes." | "Someone else changed this file. Saving will overwrite their edits." `[Save anyway]` `[Reload]` |
+| "We're sorry, but the operation could not be completed at this time."                                                          | "Couldn't save your changes. Try again."                                                       |
+| "Please note that this action cannot be undone and will delete all associated data."                                           | "This deletes the contact and all activity. You can't undo this."                              |
+| "An error has occurred. Error code: 503."                                                                                      | "Can't connect right now. Check your internet and try again."                                  |
+
+Rules:
+- **BLUF** (bottom line up front): the most important info — what changed or what will happen — comes first.
+- **Active voice, second person.** "You'll lose your edits," not "Your edits will be lost."
+- **Make consequences concrete.** "You'll lose your unsaved edits" beats "Changes may be lost."
+- **One sentence per idea.** No em-dash chaining.
+- **No technical exposition.** No HTTP codes, internal timestamps, stack traces.
+- **Don't apologize for routine failures.** "Couldn't save" is fine; "We deeply apologize" is not.
+- **Mirror the user's mental model.** Phrase warnings around the user's intent, not the system's state.
+
+### General writing principles
+
+- **Concision is a feature.** If a 2-word label is as clear as a 5-word one, use 2 words.
+- **Front-load specificity.** "Add contact" not "Begin adding your new contact."
+- **Address the user directly.** Second person ("you / your"), present tense, active voice.
+- **Match register to context.** Casual is fine for empty states; never for destructive actions or errors.
+- **Don't over-pleasantry.** "Please" and "Kindly" are forbidden (already in GHL rules above).
+- **No scare quotes, no sarcasm, no emoji** in product copy unless the GHL guidelines explicitly allow them for a surface (e.g., positive toasts).
+- **Numbers and units stay numeric.** Already covered in GHL rules; reinforces the universal rule.
+
+### When in conflict
+
+If a GHL-specific rule contradicts a universal heuristic, **GHL wins** for
+GHL surfaces — it's the team's living style guide. The universal rules
+above only fill gaps and resolve cases GHL doesn't address.
