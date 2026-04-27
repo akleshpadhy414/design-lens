@@ -14,6 +14,21 @@ const highriseContext = readFileSync(
 );
 const systemPrompt = `You are working with the following design system and copy guidelines:\n\n${highriseContext}\n\n${agentPrompt}`;
 
+const FOCUS_INSTRUCTION = {
+  full:
+    "Include all four checklist sections from the prompt: Visual Hierarchy & Layout, Usability & UX, Design System Compliance, and Copy Guidelines Compliance.",
+  visual:
+    "FOCUS MODE = visual. The reviewer is intentionally skipping copy on this run. " +
+    "Include ONLY: Visual Hierarchy & Layout, Usability & UX, and Design System Compliance. " +
+    "DO NOT emit any Copy Guidelines Compliance items — no items about sentence case, button labels, error message tone, copy formatting, or any other text-quality concerns. " +
+    "Keep the Flow Coverage section if the screen manifest has flow tags.",
+  copy:
+    "FOCUS MODE = copy. The reviewer is intentionally skipping the visual + UX agents on this run. " +
+    "Include ONLY: Copy Guidelines Compliance (and Flow Coverage if flow tags are present). " +
+    "DO NOT emit Visual Hierarchy & Layout, Usability & UX, or Design System Compliance items — no items about layout, hierarchy, components, color tokens, button variants, modal/drawer choices, or any non-copy concern. " +
+    "The summary should focus exclusively on copy strengths and issues.",
+};
+
 export async function runChecklistGen({
   hierarchyFindings,
   uxFindings,
@@ -21,12 +36,18 @@ export async function runChecklistGen({
   screenManifest = "",
   customPrompt = "",
   credentials,
+  focus = "full",
 }) {
   const manifestSection = screenManifest
     ? `## Screen Manifest\n${screenManifest}\n\n`
     : "";
+  const focusInstruction =
+    FOCUS_INSTRUCTION[focus] || FOCUS_INSTRUCTION.full;
 
-  const userMessage = `${manifestSection}## Visual Hierarchy Findings
+  const userMessage = `${manifestSection}## Focus
+${focusInstruction}
+
+## Visual Hierarchy Findings
 ${JSON.stringify(hierarchyFindings, null, 2)}
 
 ## UX Compliance Findings
@@ -36,7 +57,7 @@ ${JSON.stringify(uxFindings, null, 2)}
 ${JSON.stringify(copySuggestions, null, 2)}
 
 ## Task
-Synthesize all findings above into a final design review checklist. Generate an overall summary and rate each checklist item. If a screen manifest with flow tags is provided, include a "Flow Coverage" section evaluating whether key states are represented (happy path, error, empty, loading).`;
+Synthesize the findings into a final design review checklist that respects the Focus instruction above. Generate an overall summary and rate each checklist item. If a screen manifest with flow tags is provided, include a "Flow Coverage" section evaluating whether key states are represented (happy path, error, empty, loading).`;
 
   return await callModel({
     ...credentials,
